@@ -16,6 +16,8 @@ const initDB = async () => {
                 firstname VARCHAR(100) NOT NULL,
                 lastname VARCHAR(100) NOT NULL,
                 matricNo VARCHAR(100) UNIQUE NOT NULL,
+                department VARCHAR(100) NOT NULL,
+                faculty VARCHAR(100) NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -35,14 +37,14 @@ app.get("/", (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-    const { firstname, lastname, matricNo, password } = req.body;
+    const { firstname, lastname, matricNo, department, faculty, password } = req.body;
 
     try {
         const hashPassword = await bcrypt.hash(password, 10);
 
         await pool.query(
-            'INSERT INTO users (firstname, lastname, matricNo, password) VALUES (?, ?, ?, ?)',
-            [firstname, lastname, matricNo, hashPassword]
+            'INSERT INTO users (firstname, lastname, matricNo, department, faculty, password) VALUES (?, ?, ?, ?, ?, ?)',
+            [firstname, lastname, matricNo, department, faculty, hashPassword]
         );
 
         res.status(201).json({
@@ -90,6 +92,8 @@ app.post('/login', async(req, res) => {
             firstname: user.firstname,
             lastname: user.lastname,
             matricNo: user.matricNo,
+            department: user.department,
+            faculty: user.faculty,
         },
         });
 
