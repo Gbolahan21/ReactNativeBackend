@@ -201,6 +201,33 @@ app.get("/attendance/today/:userId", async (req, res) => {
     }
 });
 
+app.get("/attendance/history/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const [rows] = await pool.query(
+            `
+            SELECT
+                id,
+                attendance_date,
+                check_in,
+                check_out,
+                status
+            FROM attendance
+            WHERE user_id = ?
+            ORDER BY attendance_date DESC
+            `,
+            [userId]
+        );
+
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({
+            error: err.message,
+        });
+    }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
