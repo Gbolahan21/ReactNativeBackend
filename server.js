@@ -1,14 +1,19 @@
-const express = require('express');
-const pool = require('./db');
-const cors = require('cors');
-const bcrypt = require('bcrypt');
+require("dotenv").config();
+
+const express = require("express");
+const pool = require("./db");
+const cors = require("cors");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-const initDB = async () => {
+const PORT = process.env.PORT || 5000;
+
+const initUsersTable = async () => {
     try {
         const createUsersTable = `
             CREATE TABLE IF NOT EXISTS users (
@@ -30,7 +35,30 @@ const initDB = async () => {
     }
 };
 
-initDB();
+const initAttendanceTable = async () => {
+    try {
+        const createAttendanceTable = `
+            CREATE TABLE IF NOT EXISTS attendance (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                attendance_date DATE NOT NULL,
+                check_in TIME,
+                check_out TIME,
+                status VARCHAR(20),
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        `;
+
+        await pool.query(createAttendanceTable);
+        console.log("✅ Attendance table ready");
+    } catch (err) {
+        console.error("❌ Error creating table:", err);
+    }
+};
+
+initUsersTable();
+
+initAttendanceTable();
 
 app.get("/", (req, res) => {
   res.json({ message: "Backend is running!" });
@@ -85,16 +113,19 @@ app.post('/login', async(req, res) => {
           return res.status(400).json({ error: 'Invalid password' });
         }
 
+        const token = jwt.sign({ id: user.id,  matricNo: user.matricNo, }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
         res.json({
-        message: 'Login successful',
-        user: {
+          message: 'Login successful',
+          token: token,
+          user: {
             id: user.id,
             firstname: user.firstname,
             lastname: user.lastname,
             matricNo: user.matricNo,
             department: user.department,
             faculty: user.faculty,
-        },
+          },
         });
 
     } catch (err) {
@@ -102,6 +133,74 @@ app.post('/login', async(req, res) => {
     }
 })
 
-app.listen(5000, () => {
-  console.log("Server is running on port 5000");
+app.post("/attendance/checkin", async (req, res) => {
+    const { userId } = req.body;
+
+    try {
+        const [existing] = await pool.query(
+            `SELECT * FROM attendance
+             WHERE user_id = ?
+             AND attendance_date = CURDATE()`,
+            [userId]
+        );
+
+        if (existing.length > 0) {
+            return res.status(400).json({
+                error: "Attendance has already been recorded today."
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO attendance
+            (user_id, attendance_date, check_in, status)
+            VALUES (?, CURDATE(), CURTIME(), ?)`,
+            [userId, "Present"]
+        );
+
+        res.json({
+            message: "Attendance recorded successfully."
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            error: err.message,
+        });
+    }
+});
+
+app.get("/attendance/today/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const [rows] = await pool.query(
+            `
+            SELECT
+                attendance_date,
+                check_in,
+                check_out,
+                status
+            FROM attendance
+            WHERE user_id = ?
+            AND attendance_date = CURDATE()
+            `,
+            [userId]
+        );
+
+        if (rows.length === 0) {
+            return res.json({
+                status: "Not Recorded"
+            });
+        }
+
+        res.json(rows[0]);
+
+    } catch (err) {
+        res.status(500).json({
+            error: err.message,
+        });
+    }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
