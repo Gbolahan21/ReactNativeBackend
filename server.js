@@ -204,7 +204,12 @@ app.get("/attendance/today/:userId", async (req, res) => {
 app.get("/attendance/history/:userId", async (req, res) => {
     const { userId } = req.params;
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
     try {
+        // Get paginated attendance records
         const [rows] = await pool.query(
             `
             SELECT
@@ -216,11 +221,32 @@ app.get("/attendance/history/:userId", async (req, res) => {
             FROM attendance
             WHERE user_id = ?
             ORDER BY attendance_date DESC
+            LIMIT ? OFFSET ?
+            `,
+            [userId, limit, offset]
+        );
+
+        // Get total number of records
+        const [countResult] = await pool.query(
+            `
+            SELECT COUNT(*) AS total
+            FROM attendance
+            WHERE user_id = ?
             `,
             [userId]
         );
 
-        res.json(rows);
+        const totalRecords = countResult[0].total;
+        const totalPages = Math.ceil(totalRecords / limit);
+
+        res.json({
+            records: rows,
+            page,
+            limit,
+            totalRecords,
+            totalPages,
+        });
+
     } catch (err) {
         res.status(500).json({
             error: err.message,
