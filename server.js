@@ -362,6 +362,101 @@ app.post('/admin/login', async(req, res) => {
     }
 })
 
+app.get("/admin/dashboard", async (req, res) => {
+  try {
+    const [[studentCount]] = await pool.query(`
+      SELECT COUNT(*) AS totalStudents
+      FROM users
+    `);
+
+    const [[presentToday]] = await pool.query(`
+      SELECT COUNT(*) AS presentToday
+      FROM attendance
+      WHERE attendance_date = CURDATE()
+      AND status = 'Present'
+    `);
+
+    const absentToday =
+      studentCount.totalStudents - presentToday.presentToday;
+
+    const attendanceRate =
+      studentCount.totalStudents === 0
+        ? 0
+        : Math.round(
+            (presentToday.presentToday /
+              studentCount.totalStudents) *
+              100
+          );
+
+    res.json({
+      totalStudents: studentCount.totalStudents,
+      presentToday: presentToday.presentToday,
+      absentToday,
+      attendanceRate,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+app.get("/admin/students", async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const search = req.query.search || "";
+
+    const offset = (page - 1) * limit;
+
+    const searchTerm = `%${search}%`;
+
+    const [[{ total }]] = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM users
+      WHERE
+        firstname LIKE ?
+        OR lastname LIKE ?
+        OR matricNo LIKE ?
+      `,
+      [searchTerm, searchTerm, searchTerm]
+    );
+
+    const [students] = await pool.query(
+      `
+      SELECT
+        id,
+        firstname,
+        lastname,
+        matricNo,
+        department,
+        faculty
+      FROM users
+      WHERE
+        firstname LIKE ?
+        OR lastname LIKE ?
+        OR matricNo LIKE ?
+      ORDER BY firstname ASC
+      LIMIT ?
+      OFFSET ?
+      `,
+      [searchTerm, searchTerm, searchTerm, limit, offset]
+    );
+
+    res.json({
+      records: students,
+      page,
+      totalPages: Math.ceil(total / limit),
+      total,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
