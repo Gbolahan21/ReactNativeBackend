@@ -93,6 +93,28 @@ app.get("/", (req, res) => {
 app.post('/register', async (req, res) => {
     const { firstname, lastname, matricNo, email, department, faculty, level, password } = req.body;
 
+    if (!firstname || !lastname || !matricNo || !email || !department || !faculty || !level || !password) {
+      return res.status(400).json({
+        error: "All fields are required.",
+      });
+    }
+
+    const studentEmailRegex = /^[^\s@]+@student\.lautech\.edu\.ng$/i;
+
+    if (!studentEmailRegex.test(email)) {
+      return res.status(400).json({
+        error: "Please use a valid LAUTECH student email.",
+      });
+    }
+
+    const validLevels = ["100", "200", "300", "400", "500", "600"];
+
+    if (!validLevels.includes(String(level))) {
+      return res.status(400).json({
+        error: "Invalid student level.",
+      });
+    }
+
     try {
         const hashPassword = await bcrypt.hash(password, 10);
 
@@ -107,10 +129,25 @@ app.post('/register', async (req, res) => {
         });
     } catch (err) {
         if (err.code === "ER_DUP_ENTRY") {
+          // Check which unique field caused the error
+          if (err.sqlMessage.includes("matricNo")) {
             return res.status(400).json({
-                error: "Matric number already exists",
+              error: "Matric number already exists.",
             });
+          }
+
+          if (err.sqlMessage.includes("email")) {
+            return res.status(400).json({
+              error: "Email already exists.",
+            });
+          }
+
+          return res.status(400).json({
+            error: "Student already exists.",
+          });
         }
+
+        console.error("Registration error:", err);
 
         res.status(500).json({
             error: "Internal server error",
