@@ -24,7 +24,7 @@ const initUsersTable = async () => {
                 email VARCHAR(255) UNIQUE NOT NULL,
                 department VARCHAR(100) NOT NULL,
                 faculty VARCHAR(100) NOT NULL,
-                level VARCHAR(20) UNIQUE NOT NULL,
+                level VARCHAR(20) NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -498,6 +498,6 @@ app.get("/admin/students", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
