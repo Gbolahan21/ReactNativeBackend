@@ -5,6 +5,7 @@ const pool = require("./db");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
 
@@ -237,10 +238,10 @@ app.post('/student/signin', async(req, res) => {
   }
 })
 
-app.get("/student/load", authenticateToken, async (req, res) => {
+app.get("/student/load", authMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT
+      `SELECT 
         id,
         firstname,
         lastname,
@@ -256,18 +257,20 @@ app.get("/student/load", authenticateToken, async (req, res) => {
 
     if (rows.length === 0) {
       return res.status(404).json({
-        error: "Student not found",
+        error: "User not found",
       });
     }
 
-    res.json({
-      user: rows[0],
-    });
-  } catch (err) {
-    console.error("Student load error:", err);
+    const user = rows[0];
 
+    res.json({
+      message: "Session restored",
+      user,
+    });
+
+  } catch (err) {
     res.status(500).json({
-      error: "Internal server error",
+      error: err.message,
     });
   }
 });
