@@ -90,7 +90,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Backend is running!" });
 });
 
-app.post('/register', async (req, res) => {
+app.post('/student/signup', async (req, res) => {
     const { firstname, lastname, matricNo, email, department, faculty, level, password } = req.body;
 
     if (!firstname || !lastname || !matricNo || !email || !department || !faculty || !level || !password) {
@@ -155,7 +155,7 @@ app.post('/register', async (req, res) => {
     }
 })
 
-app.post('/login', async(req, res) => {
+app.post('/student/signin', async(req, res) => {
     const { matricNo, password } = req.body;
 
     try {
