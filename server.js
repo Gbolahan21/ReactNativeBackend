@@ -11,51 +11,81 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({
+      error: "Access token required",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Invalid authorization header",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = decoded;
+
+    next();
+  } catch (err) {
+    return res.status(401).json({
+      error: "Invalid or expired token",
+    });
+  }
+};
+
 const PORT = process.env.PORT || 5000;
 
 const initUsersTable = async () => {
-    try {
-        const createUsersTable = `
-            CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                firstname VARCHAR(100) NOT NULL,
-                lastname VARCHAR(100) NOT NULL,
-                matricNo VARCHAR(100) UNIQUE NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                department VARCHAR(100) NOT NULL,
-                faculty VARCHAR(100) NOT NULL,
-                level VARCHAR(20) NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `;
+  try {
+    const createUsersTable = `
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        firstname VARCHAR(100) NOT NULL,
+        lastname VARCHAR(100) NOT NULL,
+        matricNo VARCHAR(100) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        department VARCHAR(100) NOT NULL,
+        faculty VARCHAR(100) NOT NULL,
+        level VARCHAR(20) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
 
-        await pool.query(createUsersTable);
-        console.log("✅ Users table ready");
-    } catch (err) {
-        console.error("❌ Error creating table:", err);
-    }
+    await pool.query(createUsersTable);
+    console.log("✅ Users table ready");
+  } catch (err) {
+    console.error("❌ Error creating table:", err);
+  }
 };
 
 const initAttendanceTable = async () => {
-    try {
-        const createAttendanceTable = `
-            CREATE TABLE IF NOT EXISTS attendance (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                attendance_date DATE NOT NULL,
-                check_in TIME,
-                check_out TIME,
-                status VARCHAR(20),
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        `;
+  try {
+    const createAttendanceTable = `
+      CREATE TABLE IF NOT EXISTS attendance (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        attendance_date DATE NOT NULL,
+        check_in TIME,
+        check_out TIME,
+        status VARCHAR(20),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `;
 
-        await pool.query(createAttendanceTable);
-        console.log("✅ Attendance table ready");
-    } catch (err) {
-        console.error("❌ Error creating table:", err);
-    }
+    await pool.query(createAttendanceTable);
+    console.log("✅ Attendance table ready");
+  } catch (err) {
+    console.error("❌ Error creating table:", err);
+  }
 };
 
 const initAdminsTable = async () => {
@@ -91,112 +121,147 @@ app.get("/", (req, res) => {
 });
 
 app.post('/student/signup', async (req, res) => {
-    const { firstname, lastname, matricNo, email, department, faculty, level, password } = req.body;
+  const { firstname, lastname, matricNo, email, department, faculty, level, password } = req.body;
 
-    if (!firstname || !lastname || !matricNo || !email || !department || !faculty || !level || !password) {
-      return res.status(400).json({
-        error: "All fields are required.",
-      });
-    }
+  if (!firstname || !lastname || !matricNo || !email || !department || !faculty || !level || !password) {
+    return res.status(400).json({
+      error: "All fields are required.",
+    });
+  }
 
-    const studentEmailRegex = /^[^\s@]+@student\.lautech\.edu\.ng$/i;
+  const studentEmailRegex = /^[^\s@]+@student\.lautech\.edu\.ng$/i;
 
-    if (!studentEmailRegex.test(email)) {
-      return res.status(400).json({
-        error: "Please use a valid LAUTECH student email.",
-      });
-    }
+  if (!studentEmailRegex.test(email)) {
+    return res.status(400).json({
+      error: "Please use a valid LAUTECH student email.",
+    });
+  }
 
-    const validLevels = ["100", "200", "300", "400", "500", "600"];
+  const validLevels = ["100", "200", "300", "400", "500", "600"];
 
-    if (!validLevels.includes(String(level))) {
-      return res.status(400).json({
-        error: "Invalid student level.",
-      });
-    }
+  if (!validLevels.includes(String(level))) {
+    return res.status(400).json({
+      error: "Invalid student level.",
+    });
+  }
 
-    try {
-        const hashPassword = await bcrypt.hash(password, 10);
+  try {
+    const hashPassword = await bcrypt.hash(password, 10);
 
-        await pool.query(
-            'INSERT INTO users (firstname, lastname, matricNo, email, department, faculty, level, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [firstname, lastname, matricNo, email, department, faculty, level, hashPassword]
-        );
+    await pool.query(
+        'INSERT INTO users (firstname, lastname, matricNo, email, department, faculty, level, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [firstname, lastname, matricNo, email, department, faculty, level, hashPassword]
+    );
 
-        res.status(201).json({
-            success: true,
-            message: "Registration successful",
-        });
-    } catch (err) {
-        if (err.code === "ER_DUP_ENTRY") {
-          // Check which unique field caused the error
-          if (err.sqlMessage.includes("matricNo")) {
-            return res.status(400).json({
-              error: "Matric number already exists.",
-            });
-          }
-
-          if (err.sqlMessage.includes("email")) {
-            return res.status(400).json({
-              error: "Email already exists.",
-            });
-          }
-
+    res.status(201).json({
+        success: true,
+        message: "Registration successful",
+    });
+  } catch (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        // Check which unique field caused the error
+        if (err.sqlMessage.includes("matricNo")) {
           return res.status(400).json({
-            error: "Student already exists.",
+            error: "Matric number already exists.",
           });
         }
 
-        console.error("Registration error:", err);
+        if (err.sqlMessage.includes("email")) {
+          return res.status(400).json({
+            error: "Email already exists.",
+          });
+        }
 
-        res.status(500).json({
-            error: "Internal server error",
+        return res.status(400).json({
+          error: "Student already exists.",
         });
-    }
+      }
+
+      console.error("Registration error:", err);
+
+      res.status(500).json({
+          error: "Internal server error",
+      });
+  }
 })
 
 app.post('/student/signin', async(req, res) => {
-    const { matricNo, password } = req.body;
+  const { matricNo, password } = req.body;
 
-    try {
-        const [rows] = await pool.query(
-            'SELECT * FROM users WHERE matricNo = ?',
-            [matricNo]
-        )
+  try {
+      const [rows] = await pool.query(
+          'SELECT * FROM users WHERE matricNo = ?',
+          [matricNo]
+      )
 
-        if (rows.length === 0) {
-          return res.status(400).json({ error: 'User not found' });
-        }
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'User not found' });
+      }
 
-        const user = rows[0];
+      const user = rows[0];
 
-        const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, user.password);
 
-        if (!isMatch) {
-          return res.status(400).json({ error: 'Invalid password' });
-        }
+      if (!isMatch) {
+        return res.status(400).json({ error: 'Invalid password' });
+      }
 
-        const token = jwt.sign({ id: user.id,  matricNo: user.matricNo, }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ id: user.id,  matricNo: user.matricNo, }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        res.json({
-          message: 'Login successful',
-          token: token,
-          user: {
-            id: user.id,
-            firstname: user.firstname,
-            lastname: user.lastname,
-            matricNo: user.matricNo,
-            email: user.email,
-            department: user.department,
-            faculty: user.faculty,
-            level: user.level,
-          },
-        });
+      res.json({
+        message: 'Login successful',
+        token: token,
+        user: {
+          id: user.id,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          matricNo: user.matricNo,
+          email: user.email,
+          department: user.department,
+          faculty: user.faculty,
+          level: user.level,
+        },
+      });
 
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+  } catch (err) {
+      res.status(500).json({ error: err.message });
+  }
 })
+
+app.get("/student/load", authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+        id,
+        firstname,
+        lastname,
+        matricNo,
+        email,
+        department,
+        faculty,
+        level
+       FROM users
+       WHERE id = ?`,
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error: "Student not found",
+      });
+    }
+
+    res.json({
+      user: rows[0],
+    });
+  } catch (err) {
+    console.error("Student load error:", err);
+
+    res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
 
 app.post("/attendance/checkin", async (req, res) => {
     const { userId } = req.body;
@@ -234,89 +299,89 @@ app.post("/attendance/checkin", async (req, res) => {
 });
 
 app.get("/attendance/today/:userId", async (req, res) => {
-    const { userId } = req.params;
+  const { userId } = req.params;
 
-    try {
-        const [rows] = await pool.query(
-            `
-            SELECT
-                attendance_date,
-                check_in,
-                check_out,
-                status
-            FROM attendance
-            WHERE user_id = ?
-            AND attendance_date = CURDATE()
-            `,
-            [userId]
-        );
+  try {
+      const [rows] = await pool.query(
+          `
+          SELECT
+              attendance_date,
+              check_in,
+              check_out,
+              status
+          FROM attendance
+          WHERE user_id = ?
+          AND attendance_date = CURDATE()
+          `,
+          [userId]
+      );
 
-        if (rows.length === 0) {
-            return res.json({
-                status: "Not Recorded"
-            });
-        }
+      if (rows.length === 0) {
+          return res.json({
+              status: "Not Recorded"
+          });
+      }
 
-        res.json(rows[0]);
+      res.json(rows[0]);
 
-    } catch (err) {
-        res.status(500).json({
-            error: err.message,
-        });
-    }
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 app.get("/attendance/history/:userId", async (req, res) => {
-    const { userId } = req.params;
+  const { userId } = req.params;
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
 
-    try {
-        // Get paginated attendance records
-        const [rows] = await pool.query(
-            `
-            SELECT
-                id,
-                attendance_date,
-                check_in,
-                check_out,
-                status
-            FROM attendance
-            WHERE user_id = ?
-            ORDER BY attendance_date DESC
-            LIMIT ? OFFSET ?
-            `,
-            [userId, limit, offset]
-        );
+  try {
+      // Get paginated attendance records
+      const [rows] = await pool.query(
+          `
+          SELECT
+              id,
+              attendance_date,
+              check_in,
+              check_out,
+              status
+          FROM attendance
+          WHERE user_id = ?
+          ORDER BY attendance_date DESC
+          LIMIT ? OFFSET ?
+          `,
+          [userId, limit, offset]
+      );
 
-        // Get total number of records
-        const [countResult] = await pool.query(
-            `
-            SELECT COUNT(*) AS total
-            FROM attendance
-            WHERE user_id = ?
-            `,
-            [userId]
-        );
+      // Get total number of records
+      const [countResult] = await pool.query(
+          `
+          SELECT COUNT(*) AS total
+          FROM attendance
+          WHERE user_id = ?
+          `,
+          [userId]
+      );
 
-        const totalRecords = countResult[0].total;
-        const totalPages = Math.ceil(totalRecords / limit);
+      const totalRecords = countResult[0].total;
+      const totalPages = Math.ceil(totalRecords / limit);
 
-        res.json({
-            records: rows,
-            page,
-            limit,
-            totalRecords,
-            totalPages,
-        });
+      res.json({
+          records: rows,
+          page,
+          limit,
+          totalRecords,
+          totalPages,
+      });
 
-    } catch (err) {
-        res.status(500).json({
-            error: err.message,
-        });
-    }
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 app.post("/admin/register", async (req, res) => {
