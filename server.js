@@ -275,6 +275,72 @@ app.get("/student/load", authMiddleware, async (req, res) => {
   }
 });
 
+app.get("/student/faculties", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT faculty
+      FROM users
+      WHERE faculty IS NOT NULL
+        AND faculty != ''
+      ORDER BY faculty ASC
+    `);
+
+    res.json({
+      faculties: rows.map((row) => row.faculty),
+    });
+  } catch (err) {
+    console.error("Error fetching faculties:", err);
+
+    res.status(500).json({
+      error: "Failed to fetch faculties",
+    });
+  }
+});
+
+app.get("/student/departments", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT department
+      FROM users
+      WHERE department IS NOT NULL
+        AND department != ''
+      ORDER BY department ASC
+    `);
+
+    res.json({
+      departments: rows.map((row) => row.department),
+    });
+  } catch (err) {
+    console.error("Error fetching departments:", err);
+
+    res.status(500).json({
+      error: "Failed to fetch departments",
+    });
+  }
+});
+
+app.get("/student/levels", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT level
+      FROM users
+      WHERE level IS NOT NULL
+        AND level != ''
+      ORDER BY level ASC
+    `);
+
+    res.json({
+      levels: rows.map((row) => row.level),
+    });
+  } catch (err) {
+    console.error("Error fetching levels:", err);
+
+    res.status(500).json({
+      error: "Failed to fetch levels",
+    });
+  }
+});
+
 app.post("/attendance/checkin", async (req, res) => {
   const { userId } = req.body;
 
