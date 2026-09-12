@@ -310,6 +310,62 @@ app.post("/attendance/checkin", async (req, res) => {
   }
 });
 
+app.post("/attendance/checkout", async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT *
+       FROM attendance
+       WHERE user_id = ?
+       AND attendance_date = CURDATE()`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({
+        error: "You have not checked in today.",
+      });
+    }
+
+    const attendance = rows[0];
+
+    if (attendance.check_out) {
+      return res.status(400).json({
+        error: "You have already checked out today.",
+      });
+    }
+
+    await pool.query(
+      `UPDATE attendance
+      SET check_out = CURTIME()
+      WHERE id = ?`,
+      [attendance.id]
+    );
+
+    const [updatedAttendance] = await pool.query(
+      `SELECT
+        id,
+        attendance_date,
+        check_in,
+        check_out,
+        status
+      FROM attendance
+      WHERE id = ?`,
+      [attendance.id]
+    );
+
+    res.json({
+      message: "Checkout recorded successfully.",
+      attendance: updatedAttendance[0],
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 app.get("/attendance/today/:userId", async (req, res) => {
   const { userId } = req.params;
 
