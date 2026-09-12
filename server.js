@@ -276,38 +276,38 @@ app.get("/student/load", authMiddleware, async (req, res) => {
 });
 
 app.post("/attendance/checkin", async (req, res) => {
-    const { userId } = req.body;
+  const { userId } = req.body;
 
-    try {
-        const [existing] = await pool.query(
-            `SELECT * FROM attendance
-             WHERE user_id = ?
-             AND attendance_date = CURDATE()`,
-            [userId]
-        );
+  try {
+    const [existing] = await pool.query(
+      `SELECT * FROM attendance
+        WHERE user_id = ?
+        AND attendance_date = CURDATE()`,
+      [userId]
+    );
 
-        if (existing.length > 0) {
-            return res.status(400).json({
-                error: "Attendance has already been recorded today."
-            });
-        }
-
-        await pool.query(
-            `INSERT INTO attendance
-            (user_id, attendance_date, check_in, status)
-            VALUES (?, CURDATE(), CURTIME(), ?)`,
-            [userId, "Present"]
-        );
-
-        res.json({
-            message: "Attendance recorded successfully."
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            error: err.message,
-        });
+    if (existing.length > 0) {
+      return res.status(400).json({
+        error: "Attendance has already been recorded today."
+      });
     }
+
+    await pool.query(
+      `INSERT INTO attendance
+      (user_id, attendance_date, check_in, status)
+      VALUES (?, CURDATE(), CURTIME(), ?)`,
+      [userId, "Present"]
+    );
+
+    res.json({
+      message: "Attendance recorded successfully."
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 app.get("/attendance/today/:userId", async (req, res) => {
