@@ -3,14 +3,14 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const pool = require("../db");
-const authMiddleware = require("../middleware/authMiddleware");
+const studentMiddleware = require("../middleware/studentMiddleware");
 
 const router = express.Router();
 
-const initUsersTable = async () => {
+const initStudentsTable = async () => {
   try {
-    const createUsersTable = `
-      CREATE TABLE IF NOT EXISTS users (
+    const createStudentsTable = `
+      CREATE TABLE IF NOT EXISTS students (
         id INT AUTO_INCREMENT PRIMARY KEY,
         firstname VARCHAR(100) NOT NULL,
         lastname VARCHAR(100) NOT NULL,
@@ -24,16 +24,16 @@ const initUsersTable = async () => {
       )
     `;
 
-    await pool.query(createUsersTable);
-    console.log("✅ Users table ready");
+    await pool.query(createStudentsTable);
+    console.log("✅ Students table ready");
   } catch (err) {
     console.error("❌ Error creating table:", err);
   }
 };
 
-initUsersTable();
+initStudentsTable();
 
-router.post('/student/signup', async (req, res) => {
+router.post('/signup', async (req, res) => {
   const { firstname, lastname, matricNo, email, department, faculty, level, password } = req.body;
 
   if (!firstname || !lastname || !matricNo || !email || !department || !faculty || !level || !password) {
@@ -71,7 +71,7 @@ router.post('/student/signup', async (req, res) => {
     const hashPassword = await bcrypt.hash(password, 10);
 
     await pool.query(
-        'INSERT INTO users (firstname, lastname, matricNo, email, department, faculty, level, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO students (firstname, lastname, matricNo, email, department, faculty, level, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [firstname, lastname, matricNo, email, department, faculty, level, hashPassword]
     );
 
@@ -107,41 +107,41 @@ router.post('/student/signup', async (req, res) => {
   }
 })
 
-router.post('/student/signin', async(req, res) => {
+router.post('/signin', async(req, res) => {
   const { matricNo, password } = req.body;
 
   try {
       const [rows] = await pool.query(
-          'SELECT * FROM users WHERE matricNo = ?',
+          'SELECT * FROM students WHERE matricNo = ?',
           [matricNo]
       )
 
       if (rows.length === 0) {
-        return res.status(400).json({ error: 'User not found' });
+        return res.status(400).json({ error: 'Student not found' });
       }
 
-      const user = rows[0];
+      const student = rows[0];
 
-      const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, student.password);
 
       if (!isMatch) {
         return res.status(400).json({ error: 'Invalid password' });
       }
 
-      const token = jwt.sign({ id: user.id,  matricNo: user.matricNo, }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ id: student.id,  matricNo: student.matricNo, }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
       res.json({
         message: 'Login successful',
         token: token,
-        user: {
-          id: user.id,
-          firstname: user.firstname,
-          lastname: user.lastname,
-          matricNo: user.matricNo,
-          email: user.email,
-          department: user.department,
-          faculty: user.faculty,
-          level: user.level,
+        student: {
+          id: student.id,
+          firstname: student.firstname,
+          lastname: student.lastname,
+          matricNo: student.matricNo,
+          email: student.email,
+          department: student.department,
+          faculty: student.faculty,
+          level: student.level,
         },
       });
 
@@ -150,7 +150,7 @@ router.post('/student/signin', async(req, res) => {
   }
 })
 
-router.get("/student/load", authMiddleware, async (req, res) => {
+router.get("/load", studentMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT 
@@ -162,22 +162,22 @@ router.get("/student/load", authMiddleware, async (req, res) => {
         department,
         faculty,
         level
-       FROM users
+       FROM students
        WHERE id = ?`,
-      [req.user.id]
+      [req.student.id]
     );
 
     if (rows.length === 0) {
       return res.status(404).json({
-        error: "User not found",
+        error: "Student not found",
       });
     }
 
-    const user = rows[0];
+    const student = rows[0];
 
     res.json({
       message: "Session restored",
-      user,
+      student,
     });
 
   } catch (err) {
@@ -187,71 +187,71 @@ router.get("/student/load", authMiddleware, async (req, res) => {
   }
 });
 
-// router.get("/student/faculties", async (req, res) => {
-//   try {
-//     const [rows] = await pool.query(`
-//       SELECT DISTINCT faculty
-//       FROM users
-//       WHERE faculty IS NOT NULL
-//         AND faculty != ''
-//       ORDER BY faculty ASC
-//     `);
+router.get("/faculties", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT faculty
+      FROM students
+      WHERE faculty IS NOT NULL
+        AND faculty != ''
+      ORDER BY faculty ASC
+    `);
 
-//     res.json({
-//       faculties: rows.map((row) => row.faculty),
-//     });
-//   } catch (err) {
-//     console.error("Error fetching faculties:", err);
+    res.json({
+      faculties: rows.map((row) => row.faculty),
+    });
+  } catch (err) {
+    console.error("Error fetching faculties:", err);
 
-//     res.status(500).json({
-//       error: "Failed to fetch faculties",
-//     });
-//   }
-// });
+    res.status(500).json({
+      error: "Failed to fetch faculties",
+    });
+  }
+});
 
-// router.get("/student/departments", async (req, res) => {
-//   try {
-//     const [rows] = await pool.query(`
-//       SELECT DISTINCT department
-//       FROM users
-//       WHERE department IS NOT NULL
-//         AND department != ''
-//       ORDER BY department ASC
-//     `);
+router.get("/departments", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT department
+      FROM students
+      WHERE department IS NOT NULL
+        AND department != ''
+      ORDER BY department ASC
+    `);
 
-//     res.json({
-//       departments: rows.map((row) => row.department),
-//     });
-//   } catch (err) {
-//     console.error("Error fetching departments:", err);
+    res.json({
+      departments: rows.map((row) => row.department),
+    });
+  } catch (err) {
+    console.error("Error fetching departments:", err);
 
-//     res.status(500).json({
-//       error: "Failed to fetch departments",
-//     });
-//   }
-// });
+    res.status(500).json({
+      error: "Failed to fetch departments",
+    });
+  }
+});
 
-// router.get("/student/levels", async (req, res) => {
-//   try {
-//     const [rows] = await pool.query(`
-//       SELECT DISTINCT level
-//       FROM users
-//       WHERE level IS NOT NULL
-//         AND level != ''
-//       ORDER BY level ASC
-//     `);
+router.get("/levels", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT DISTINCT level
+      FROM students
+      WHERE level IS NOT NULL
+        AND level != ''
+      ORDER BY level ASC
+    `);
 
-//     res.json({
-//       levels: rows.map((row) => row.level),
-//     });
-//   } catch (err) {
-//     console.error("Error fetching levels:", err);
+    res.json({
+      levels: rows.map((row) => row.level),
+    });
+  } catch (err) {
+    console.error("Error fetching levels:", err);
 
-//     res.status(500).json({
-//       error: "Failed to fetch levels",
-//     });
-//   }
-// });
+    res.status(500).json({
+      error: "Failed to fetch levels",
+    });
+  }
+});
 
 
 module.exports = router;

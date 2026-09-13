@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const pool = require("../db");
-const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
 
 const router = express.Router();
 
@@ -32,7 +32,7 @@ const initAdminsTable = async () => {
 
 initAdminsTable();
 
-router.post("/admin/signup", async (req, res) => {
+router.post("/signup", async (req, res) => {
   const {
     firstname,
     lastname,
@@ -76,7 +76,7 @@ router.post("/admin/signup", async (req, res) => {
   }
 });
 
-router.post('/admin/signin', async(req, res) => {
+router.post('/signin', async(req, res) => {
     const { email, password } = req.body;
 
     try {
@@ -86,41 +86,41 @@ router.post('/admin/signin', async(req, res) => {
         )
 
         if (rows.length === 0) {
-          return res.status(400).json({ error: 'User not found' });
+          return res.status(400).json({ error: true, message: 'Admin not found' });
         }
 
-        const user = rows[0];
+        const admin = rows[0];
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password, admin.password);
 
         if (!isMatch) {
-          return res.status(400).json({ error: 'Invalid password' });
+          return res.status(400).json({ error: true, message: 'Invalid password' });
         }
 
-        const token = jwt.sign({ id: user.id,  email: user.email, }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: admin.id,  email: admin.email, }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         res.json({
           message: 'Login successful',
           token: token,
-          user: {
-            id: user.id,
-            firstname: user.firstname,
-            lastname: user.lastname,
-            email: user.email,
-            title: user.title,
+          admin: {
+            id: admin.id,
+            firstname: admin.firstname,
+            lastname: admin.lastname,
+            email: admin.email,
+            title: admin.title,
           },
         });
 
     } catch (err) {
-        res.status(500).json({ error: err.message });
+      res.status(500).json({ error: err.message });
     }
 })
 
-router.get("/admin/dashboard", async (req, res) => {
+router.get("/dashboard", async (req, res) => {
   try {
     const [[studentCount]] = await pool.query(`
       SELECT COUNT(*) AS totalStudents
-      FROM users
+      FROM students
     `);
 
     const [[presentToday]] = await pool.query(`
@@ -155,7 +155,7 @@ router.get("/admin/dashboard", async (req, res) => {
   }
 });
 
-router.get("/admin/students", async (req, res) => {
+router.get("/students", async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
@@ -168,7 +168,7 @@ router.get("/admin/students", async (req, res) => {
     const [[{ total }]] = await pool.query(
       `
       SELECT COUNT(*) AS total
-      FROM users
+      FROM students
       WHERE
         firstname LIKE ?
         OR lastname LIKE ?
@@ -186,7 +186,7 @@ router.get("/admin/students", async (req, res) => {
         matricNo,
         department,
         faculty
-      FROM users
+      FROM students
       WHERE
         firstname LIKE ?
         OR lastname LIKE ?
@@ -207,6 +207,43 @@ router.get("/admin/students", async (req, res) => {
   } catch (err) {
     res.status(500).json({
       error: err.message,
+    });
+  }
+});
+
+router.get("/load", adminMiddleware, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+        id,
+        firstname,
+        lastname,
+        email
+       FROM admins
+       WHERE id = ?`,
+      [req.admin.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error: true,
+        message: "Admin not found",
+      });
+    }
+
+    const admin = rows[0];
+
+    res.json({
+      message: "Session restored",
+      admin,
+    });
+
+  } catch (err) {
+    console.error("LOAD ERROR:", err);
+
+    res.status(500).json({
+      error: true,
+      message: err.message,
     });
   }
 });

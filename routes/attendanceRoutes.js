@@ -9,12 +9,12 @@ const initAttendanceTable = async () => {
     const createAttendanceTable = `
       CREATE TABLE IF NOT EXISTS attendance (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
+        student_id INT NOT NULL,
         attendance_date DATE NOT NULL,
         check_in TIME,
         check_out TIME,
         status VARCHAR(20),
-        FOREIGN KEY (user_id) REFERENCES users(id)
+        FOREIGN KEY (student_id) REFERENCES students(id)
       )
     `;
 
@@ -27,15 +27,15 @@ const initAttendanceTable = async () => {
 
 initAttendanceTable();
 
-app.post("/attendance/checkin", async (req, res) => {
-  const { userId } = req.body;
+router.post("/checkin", async (req, res) => {
+  const { studentId } = req.body;
 
   try {
     const [existing] = await pool.query(
       `SELECT * FROM attendance
-        WHERE user_id = ?
+        WHERE student_id = ?
         AND attendance_date = CURDATE()`,
-      [userId]
+      [studentId]
     );
 
     if (existing.length > 0) {
@@ -46,9 +46,9 @@ app.post("/attendance/checkin", async (req, res) => {
 
     await pool.query(
       `INSERT INTO attendance
-      (user_id, attendance_date, check_in, status)
+      (student_id, attendance_date, check_in, status)
       VALUES (?, CURDATE(), CURTIME(), ?)`,
-      [userId, "Present"]
+      [studentId, "Present"]
     );
 
     res.json({
@@ -62,16 +62,16 @@ app.post("/attendance/checkin", async (req, res) => {
   }
 });
 
-app.post("/attendance/checkout", async (req, res) => {
-  const { userId } = req.body;
+router.post("/checkout", async (req, res) => {
+  const { studentId } = req.body;
 
   try {
     const [rows] = await pool.query(
       `SELECT *
        FROM attendance
-       WHERE user_id = ?
+       WHERE student_id = ?
        AND attendance_date = CURDATE()`,
-      [userId]
+      [studentId]
     );
 
     if (rows.length === 0) {
@@ -118,8 +118,8 @@ app.post("/attendance/checkout", async (req, res) => {
   }
 });
 
-app.get("/attendance/today/:userId", async (req, res) => {
-  const { userId } = req.params;
+router.get("/today/:studentId", async (req, res) => {
+  const { studentId } = req.params;
 
   try {
       const [rows] = await pool.query(
@@ -130,10 +130,10 @@ app.get("/attendance/today/:userId", async (req, res) => {
               check_out,
               status
           FROM attendance
-          WHERE user_id = ?
+          WHERE student_id = ?
           AND attendance_date = CURDATE()
           `,
-          [userId]
+          [studentId]
       );
 
       if (rows.length === 0) {
@@ -151,8 +151,8 @@ app.get("/attendance/today/:userId", async (req, res) => {
   }
 });
 
-app.get("/attendance/history/:userId", async (req, res) => {
-  const { userId } = req.params;
+router.get("/history/:studentId", async (req, res) => {
+  const { studentId } = req.params;
 
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -169,11 +169,11 @@ app.get("/attendance/history/:userId", async (req, res) => {
               check_out,
               status
           FROM attendance
-          WHERE user_id = ?
+          WHERE student_id = ?
           ORDER BY attendance_date DESC
           LIMIT ? OFFSET ?
           `,
-          [userId, limit, offset]
+          [studentId, limit, offset]
       );
 
       // Get total number of records
@@ -181,9 +181,9 @@ app.get("/attendance/history/:userId", async (req, res) => {
           `
           SELECT COUNT(*) AS total
           FROM attendance
-          WHERE user_id = ?
+          WHERE student_id = ?
           `,
-          [userId]
+          [studentId]
       );
 
       const totalRecords = countResult[0].total;
