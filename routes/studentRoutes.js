@@ -16,11 +16,26 @@ const initStudentsTable = async () => {
         lastname VARCHAR(100) NOT NULL,
         matricNo VARCHAR(100) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
-        department VARCHAR(100) NOT NULL,
-        faculty VARCHAR(100) NOT NULL,
-        level VARCHAR(20) NOT NULL,
+        department_id INT NOT NULL,
+        faculty_id INT NOT NULL,
+        level_id INT NOT NULL,
         password VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_student_department
+          FOREIGN KEY (department_id)
+          REFERENCES departments(id)
+          ON UPDATE CASCADE
+          ON DELETE RESTRICT,
+        CONSTRAINT fk_student_faculty
+          FOREIGN KEY (faculty_id)
+          REFERENCES faculties(id)
+          ON UPDATE CASCADE
+          ON DELETE RESTRICT,
+        CONSTRAINT fk_student_level
+          FOREIGN KEY (level_id)
+          REFERENCES levels(id)
+          ON UPDATE CASCADE
+          ON DELETE RESTRICT
       )
     `;
 

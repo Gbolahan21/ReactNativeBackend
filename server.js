@@ -9,6 +9,11 @@ const cors = require("cors");
 const studentRoutes = require("./routes/studentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
+const facultyRoutes = require("./routes/facultyRoutes");
+const departmentRoutes = require("./routes/departmentRoutes");
+const levelRoutes = require("./routes/levelRoutes");
+const courseRoutes = require("./routes/courseRoutes");
+const semesterRoutes = require("./routes/semesterRoutes");
 
 const app = express();
 
@@ -25,6 +30,11 @@ app.get("/", (req, res) => {
 app.use("/student", studentRoutes);
 app.use("/admin", adminRoutes);
 app.use("/attendance", attendanceRoutes);
+app.use("/faculty", facultyRoutes);
+app.use("/department", departmentRoutes);
+app.use("/level", levelRoutes);
+app.use("/course", courseRoutes);
+app.use("/semester", semesterRoutes);
 
 
 app.listen(PORT, '0.0.0.0', () => {
