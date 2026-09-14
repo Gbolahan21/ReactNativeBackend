@@ -183,7 +183,9 @@ const deleteFaculty = async (req, res) => {
     );
 
     return res.status(200).json({
+      success: true,
       message: "Faculty deleted successfully",
+      id: Number(id),
     });
   } catch (error) {
     console.error("Delete faculty error:", error);
