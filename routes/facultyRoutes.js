@@ -1,5 +1,5 @@
 const express = require("express");
-
+const pool = require("../db");
 const router = express.Router();
 const adminMiddleware = require("../middleware/adminMiddleware");
 
