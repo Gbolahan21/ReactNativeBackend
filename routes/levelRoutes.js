@@ -1,7 +1,14 @@
 const express = require("express");
-const pool = require("../db");
-
 const router = express.Router();
+const adminMiddleware = require("../middleware/adminMiddleware");
+
+const {
+  createLevel,
+  getLevels,
+  getLevelById,
+  updateLevel,
+  deleteLevel,
+} = require("../controllers/levelControllers");
 
 
 const initLevelTable = async () => {
@@ -22,6 +29,12 @@ const initLevelTable = async () => {
 };
 
 initLevelTable();
+
+router.post("/", adminMiddleware, createLevel);
+router.get("/", adminMiddleware, getLevels);
+router.get("/:id", adminMiddleware, getLevelById);
+router.put("/:id", adminMiddleware, updateLevel);
+router.delete("/:id", adminMiddleware, deleteLevel);
 
 
 module.exports = router;

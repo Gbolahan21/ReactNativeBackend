@@ -1,7 +1,14 @@
 const express = require("express");
-const pool = require("../db");
-
 const router = express.Router();
+const adminMiddleware = require("../middleware/adminMiddleware");
+
+const {
+  createSemester,
+  getSemesters,
+  getSemesterById,
+  updateSemester,
+  deleteSemester,
+} = require("../controllers/semesterControllers");
 
 
 const initSemesterTable = async () => {
@@ -22,6 +29,12 @@ const initSemesterTable = async () => {
 };
 
 initSemesterTable();
+
+router.post("/", adminMiddleware, createSemester);
+router.get("/", adminMiddleware, getSemesters);
+router.get("/:id", adminMiddleware, getSemesterById);
+router.put("/:id", adminMiddleware, updateSemester);
+router.delete("/:id", adminMiddleware, deleteSemester);
 
 
 module.exports = router;
