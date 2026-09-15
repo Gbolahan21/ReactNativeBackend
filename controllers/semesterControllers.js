@@ -221,6 +221,7 @@ const deleteSemester = async (req, res) => {
     return res.json({
       success: true,
       message: "Semester deleted successfully",
+      id: Number(id),
     });
   } catch (err) {
     console.error("DELETE SEMESTER ERROR:", err);

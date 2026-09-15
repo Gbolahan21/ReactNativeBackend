@@ -221,6 +221,7 @@ const deleteLevel = async (req, res) => {
     return res.json({
       success: true,
       message: "Level deleted successfully",
+      id: Number(id),
     });
   } catch (err) {
     console.error("DELETE LEVEL ERROR:", err);
