@@ -301,6 +301,7 @@ const deleteDepartment = async (req, res) => {
     return res.json({
       success: true,
       message: "Department deleted successfully",
+      id: Number(id),
     });
   } catch (err) {
     console.error("DELETE DEPARTMENT ERROR:", err);
