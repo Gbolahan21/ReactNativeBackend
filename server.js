@@ -2,10 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-// const pool = require("./db");
-// const bcrypt = require("bcrypt");
-// const jwt = require("jsonwebtoken");
-// const authMiddleware = require("./middleware/authMiddleware");
+
 const studentRoutes = require("./routes/studentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
@@ -14,6 +11,11 @@ const departmentRoutes = require("./routes/departmentRoutes");
 const levelRoutes = require("./routes/levelRoutes");
 const courseRoutes = require("./routes/courseRoutes");
 const semesterRoutes = require("./routes/semesterRoutes");
+const courseRegistrationRoutes = require("./routes/courseRegistrationRoutes");
+
+const initCourseRegistrationsTable = require(
+  "./databases/initCourseRegistrationsTable"
+);
 
 const app = express();
 
@@ -35,6 +37,9 @@ app.use("/department", departmentRoutes);
 app.use("/level", levelRoutes);
 app.use("/course", courseRoutes);
 app.use("/semester", semesterRoutes);
+app.use("/course-registration", courseRegistrationRoutes);
+
+initCourseRegistrationsTable();
 
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -633,14 +633,29 @@ router.get("/courses", studentMiddleware, async (req, res) => {
         c.id,
         c.course_code,
         c.course_title,
-        c.created_at
+        c.created_at,
+
+        CASE
+          WHEN cr.id IS NOT NULL THEN TRUE
+          ELSE FALSE
+        END AS registered
+
       FROM courses c
+
+      LEFT JOIN course_registrations cr
+        ON cr.course_id = c.id
+        AND cr.student_id = ?
+        AND cr.semester_id = ?
+
       WHERE c.department_id = ?
         AND c.level_id = ?
         AND c.semester_id = ?
+
       ORDER BY c.course_code ASC
       `,
       [
+        studentId,
+        semester.id,
         student.department_id,
         student.level_id,
         semester.id,
