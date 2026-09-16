@@ -9,6 +9,7 @@ const {
   getSemesterById,
   updateSemester,
   deleteSemester,
+  setCurrentSemester
 } = require("../controllers/semesterControllers");
 
 
@@ -18,6 +19,7 @@ const initSemesterTable = async () => {
       CREATE TABLE IF NOT EXISTS semesters (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
+        is_current BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
@@ -36,6 +38,7 @@ router.get("/", adminMiddleware, getSemesters);
 router.get("/:id", adminMiddleware, getSemesterById);
 router.put("/:id", adminMiddleware, updateSemester);
 router.delete("/:id", adminMiddleware, deleteSemester);
+router.patch("/:id/current", adminMiddleware, setCurrentSemester);
 
 
 module.exports = router;

@@ -62,7 +62,7 @@ const createSemester = async (req, res) => {
 const getSemesters = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, created_at
+      `SELECT id, name, is_current, created_at
        FROM semesters
        ORDER BY id ASC`
     );
@@ -88,7 +88,7 @@ const getSemesterById = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, created_at
+      `SELECT id, name, is_current, created_at
        FROM semesters
        WHERE id = ?`,
       [id]
@@ -245,6 +245,78 @@ const deleteSemester = async (req, res) => {
   }
 };
 
+const setCurrentSemester = async (req, res) => {
+  const { id } = req.params;
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Check semester exists
+    const [semester] = await connection.query(
+      `
+      SELECT id, name
+      FROM semesters
+      WHERE id = ?
+      `,
+      [id]
+    );
+
+    if (semester.length === 0) {
+      await connection.rollback();
+
+      return res.status(404).json({
+        error: true,
+        message: "Semester not found",
+      });
+    }
+
+    // Remove current status from all semesters
+    await connection.query(
+      `
+      UPDATE semesters
+      SET is_current = FALSE
+      `
+    );
+
+    // Make selected semester current
+    await connection.query(
+      `
+      UPDATE semesters
+      SET is_current = TRUE
+      WHERE id = ?
+      `,
+      [id]
+    );
+
+    await connection.commit();
+
+    return res.json({
+      success: true,
+      message: `${semester[0].name} is now the current semester`,
+      semester: {
+        id: semester[0].id,
+        name: semester[0].name,
+        is_current: true,
+      },
+    });
+
+  } catch (err) {
+    await connection.rollback();
+
+    console.error("SET CURRENT SEMESTER ERROR:", err);
+
+    return res.status(500).json({
+      error: true,
+      message: "Failed to set current semester",
+    });
+
+  } finally {
+    connection.release();
+  }
+};
+
 
 module.exports = {
   createSemester,
@@ -252,4 +324,5 @@ module.exports = {
   getSemesterById,
   updateSemester,
   deleteSemester,
+  setCurrentSemester
 };

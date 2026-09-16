@@ -157,8 +157,9 @@ router.get("/dashboard", async (req, res) => {
 
 router.get("/students", async (req, res) => {
   try {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const requestedLimit = Number(req.query.limit) || 10;
+    const limit = Math.min(Math.max(requestedLimit, 1), 100);
     const search = req.query.search || "";
 
     const offset = (page - 1) * limit;
@@ -180,22 +181,41 @@ router.get("/students", async (req, res) => {
     const [students] = await pool.query(
       `
       SELECT
-        id,
-        firstname,
-        lastname,
-        matricNo,
-        department,
-        faculty
+        students.id,
+        students.firstname,
+        students.lastname,
+        students.matricNo,
+        students.email,
+        students.department,
+        students.faculty,
+        students.level,
+        students.created_at,
+        students.status,
+        students.gender,
+        sem.name AS semester
+
       FROM students
+
+      LEFT JOIN semesters sem
+        ON sem.is_current = TRUE
+
       WHERE
-        firstname LIKE ?
-        OR lastname LIKE ?
-        OR matricNo LIKE ?
-      ORDER BY firstname ASC
+        students.firstname LIKE ?
+        OR students.lastname LIKE ?
+        OR students.matricNo LIKE ?
+
+      ORDER BY students.firstname ASC
+
       LIMIT ?
       OFFSET ?
       `,
-      [searchTerm, searchTerm, searchTerm, limit, offset]
+      [
+        searchTerm,
+        searchTerm,
+        searchTerm,
+        limit,
+        offset,
+      ]
     );
 
     res.json({
@@ -204,7 +224,10 @@ router.get("/students", async (req, res) => {
       totalPages: Math.ceil(total / limit),
       total,
     });
+
   } catch (err) {
+    console.error("GET STUDENTS ERROR:", err);
+
     res.status(500).json({
       error: err.message,
     });
