@@ -158,12 +158,12 @@ router.get("/dashboard", async (req, res) => {
 router.get("/students", async (req, res) => {
   try {
     const page = Math.max(Number(req.query.page) || 1, 1);
+
     const requestedLimit = Number(req.query.limit) || 10;
     const limit = Math.min(Math.max(requestedLimit, 1), 100);
+
     const search = req.query.search || "";
-
     const offset = (page - 1) * limit;
-
     const searchTerm = `%${search}%`;
 
     const [[{ total }]] = await pool.query(
@@ -181,30 +181,41 @@ router.get("/students", async (req, res) => {
     const [students] = await pool.query(
       `
       SELECT
-        students.id,
-        students.firstname,
-        students.lastname,
-        students.matricNo,
-        students.email,
-        students.department,
-        students.faculty,
-        students.level,
-        students.created_at,
-        students.status,
-        students.gender,
+        s.id,
+        s.firstname,
+        s.lastname,
+        s.matricNo,
+        s.email,
+        s.gender,
+        s.status,
+        s.created_at,
+
+        d.name AS department,
+        f.name AS faculty,
+        l.name AS level,
+
         sem.name AS semester
 
-      FROM students
+      FROM students s
+
+      LEFT JOIN departments d
+        ON s.department_id = d.id
+
+      LEFT JOIN faculties f
+        ON s.faculty_id = f.id
+
+      LEFT JOIN levels l
+        ON s.level_id = l.id
 
       LEFT JOIN semesters sem
         ON sem.is_current = TRUE
 
       WHERE
-        students.firstname LIKE ?
-        OR students.lastname LIKE ?
-        OR students.matricNo LIKE ?
+        s.firstname LIKE ?
+        OR s.lastname LIKE ?
+        OR s.matricNo LIKE ?
 
-      ORDER BY students.firstname ASC
+      ORDER BY s.firstname ASC
 
       LIMIT ?
       OFFSET ?
@@ -233,7 +244,6 @@ router.get("/students", async (req, res) => {
     });
   }
 });
-
 router.get("/load", adminMiddleware, async (req, res) => {
   try {
     const [rows] = await pool.query(
