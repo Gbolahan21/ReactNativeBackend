@@ -28,34 +28,44 @@ const initAttendanceTable = async () => {
 initAttendanceTable();
 
 router.post("/checkin", async (req, res) => {
-  const { studentId } = req.body;
+  const { studentId, courseId } = req.body;
+
+  if (!studentId || !courseId) {
+    return res.status(400).json({
+      error: "Student and course are required.",
+    });
+  }
 
   try {
     const [existing] = await pool.query(
-      `SELECT * FROM attendance
-        WHERE student_id = ?
-        AND attendance_date = CURDATE()`,
-      [studentId]
+      `SELECT *
+       FROM attendance
+       WHERE student_id = ?
+       AND course_id = ?
+       AND attendance_date = CURDATE()`,
+      [studentId, courseId]
     );
 
     if (existing.length > 0) {
       return res.status(400).json({
-        error: "Attendance has already been recorded today."
+        error: "Attendance has already been recorded for this course today.",
       });
     }
 
     await pool.query(
       `INSERT INTO attendance
-      (student_id, attendance_date, check_in, status)
-      VALUES (?, CURDATE(), CURTIME(), ?)`,
-      [studentId, "Present"]
+       (student_id, course_id, attendance_date, check_in, status)
+       VALUES (?, ?, CURDATE(), CURTIME(), ?)`,
+      [studentId, courseId, "Present"]
     );
 
     res.json({
-      message: "Attendance recorded successfully."
+      message: "Attendance recorded successfully.",
     });
 
   } catch (err) {
+    console.error("Check-in error:", err);
+
     res.status(500).json({
       error: err.message,
     });
@@ -63,47 +73,62 @@ router.post("/checkin", async (req, res) => {
 });
 
 router.post("/checkout", async (req, res) => {
-  const { studentId } = req.body;
+  const { studentId, courseId } = req.body;
+
+  if (!studentId || !courseId) {
+    return res.status(400).json({
+      error: "Student and course are required.",
+    });
+  }
 
   try {
     const [rows] = await pool.query(
       `SELECT *
        FROM attendance
        WHERE student_id = ?
+       AND course_id = ?
        AND attendance_date = CURDATE()`,
-      [studentId]
+      [studentId, courseId]
     );
 
     if (rows.length === 0) {
       return res.status(400).json({
-        error: "You have not checked in today.",
+        error: "You have not checked in for this course today.",
       });
     }
 
     const attendance = rows[0];
 
+    if (!attendance.check_in) {
+      return res.status(400).json({
+        error: "You have not checked in for this course.",
+      });
+    }
+
     if (attendance.check_out) {
       return res.status(400).json({
-        error: "You have already checked out today.",
+        error: "You have already checked out from this course today.",
       });
     }
 
     await pool.query(
       `UPDATE attendance
-      SET check_out = CURTIME()
-      WHERE id = ?`,
+       SET check_out = CURTIME()
+       WHERE id = ?`,
       [attendance.id]
     );
 
     const [updatedAttendance] = await pool.query(
       `SELECT
         id,
+        student_id,
+        course_id,
         attendance_date,
         check_in,
         check_out,
         status
-      FROM attendance
-      WHERE id = ?`,
+       FROM attendance
+       WHERE id = ?`,
       [attendance.id]
     );
 
@@ -111,7 +136,10 @@ router.post("/checkout", async (req, res) => {
       message: "Checkout recorded successfully.",
       attendance: updatedAttendance[0],
     });
+
   } catch (err) {
+    console.error("Checkout error:", err);
+
     res.status(500).json({
       error: err.message,
     });
@@ -122,29 +150,29 @@ router.get("/today/:studentId", async (req, res) => {
   const { studentId } = req.params;
 
   try {
-      const [rows] = await pool.query(
-          `
-          SELECT
-              attendance_date,
-              check_in,
-              check_out,
-              status
-          FROM attendance
-          WHERE student_id = ?
-          AND attendance_date = CURDATE()
-          `,
-          [studentId]
-      );
+    const [rows] = await pool.query(
+      `
+      SELECT
+        id,
+        student_id,
+        course_id,
+        attendance_date,
+        check_in,
+        check_out,
+        status
+      FROM attendance
+      WHERE student_id = ?
+      AND attendance_date = CURDATE()
+      ORDER BY id DESC
+      `,
+      [studentId]
+    );
 
-      if (rows.length === 0) {
-          return res.json({
-              status: "Not Recorded"
-          });
-      }
-
-      res.json(rows[0]);
+    res.json(rows);
 
   } catch (err) {
+    console.error("Today's attendance error:", err);
+
     res.status(500).json({
       error: err.message,
     });
