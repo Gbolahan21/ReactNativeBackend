@@ -250,5 +250,51 @@ router.get("/history/:studentId", async (req, res) => {
   }
 });
 
+router.get("/admin", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        a.id,
+        s.matricNo,
+
+        a.course_id,
+        c.course_code,
+        c.course_title,
+        c.course_unit,
+
+        s.level_id,
+        l.name AS level_name,
+
+        a.attendance_date,
+        a.check_in,
+        a.check_out,
+        a.status
+
+      FROM attendance a
+
+      JOIN students s
+        ON a.student_id = s.id
+
+      JOIN courses c
+        ON a.course_id = c.id
+
+      JOIN levels l
+        ON s.level_id = l.id
+
+      ORDER BY a.attendance_date DESC, a.check_in DESC
+    `);
+
+    res.json({
+      attendance: rows,
+    });
+
+  } catch (err) {
+    console.error("Admin attendance error:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
 
 module.exports = router;
