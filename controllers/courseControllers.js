@@ -5,6 +5,7 @@ const createCourse = async (req, res) => {
   const {
     course_code,
     course_title,
+    course_unit,
     department_id,
     level_id,
     semester_id,
@@ -22,6 +23,21 @@ const createCourse = async (req, res) => {
     return res.status(400).json({
       error: true,
       message: "Course title is required",
+    });
+  }
+
+   // Validate course unit
+  const unit = Number(course_unit);
+
+  if (
+    !course_unit ||
+    !Number.isInteger(unit) ||
+    unit < 1 ||
+    unit > 6
+  ) {
+    return res.status(400).json({
+      error: true,
+      message: "Course unit must be a whole number between 1 and 6",
     });
   }
 
@@ -125,14 +141,16 @@ const createCourse = async (req, res) => {
        (
          course_code,
          course_title,
+         course_unit,
          department_id,
          level_id,
          semester_id
        )
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         courseCode,
         courseTitle,
+        unit,
         department_id,
         level_id,
         semester_id,
@@ -145,6 +163,7 @@ const createCourse = async (req, res) => {
         c.id,
         c.course_code,
         c.course_title,
+        c.course_unit,
         c.department_id,
         d.name AS department_name,
         d.faculty_id,
@@ -197,6 +216,7 @@ const getCourses = async (req, res) => {
         c.id,
         c.course_code,
         c.course_title,
+        c.course_unit,
         c.department_id,
         d.name AS department_name,
         d.faculty_id,
@@ -258,7 +278,6 @@ const getCourses = async (req, res) => {
   }
 };
 
-
 // GET COURSE BY ID
 const getCourseById = async (req, res) => {
   const { id } = req.params;
@@ -269,6 +288,7 @@ const getCourseById = async (req, res) => {
         c.id,
         c.course_code,
         c.course_title,
+        c.course_unit,
         c.department_id,
         d.name AS department_name,
         d.faculty_id,
@@ -320,6 +340,7 @@ const updateCourse = async (req, res) => {
   const {
     course_code,
     course_title,
+    course_unit,
     department_id,
     level_id,
     semester_id,
@@ -337,6 +358,21 @@ const updateCourse = async (req, res) => {
     return res.status(400).json({
       error: true,
       message: "Course title is required",
+    });
+  }
+
+  // Validate course unit
+  const unit = Number(course_unit);
+
+  if (
+    !course_unit ||
+    !Number.isInteger(unit) ||
+    unit < 1 ||
+    unit > 6
+  ) {
+    return res.status(400).json({
+      error: true,
+      message: "Course unit must be a whole number between 1 and 6",
     });
   }
 
@@ -457,6 +493,7 @@ const updateCourse = async (req, res) => {
        SET
          course_code = ?,
          course_title = ?,
+         course_unit = ?,
          department_id = ?,
          level_id = ?,
          semester_id = ?
@@ -464,6 +501,7 @@ const updateCourse = async (req, res) => {
       [
         courseCode,
         courseTitle,
+        unit,
         department_id,
         level_id,
         semester_id,
@@ -477,6 +515,7 @@ const updateCourse = async (req, res) => {
         c.id,
         c.course_code,
         c.course_title,
+        c.course_unit,
         c.department_id,
         d.name AS department_name,
         d.faculty_id,

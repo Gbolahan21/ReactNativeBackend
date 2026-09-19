@@ -9,12 +9,24 @@ const initAttendanceTable = async () => {
     const createAttendanceTable = `
       CREATE TABLE IF NOT EXISTS attendance (
         id INT AUTO_INCREMENT PRIMARY KEY,
+
         student_id INT NOT NULL,
+        course_id INT NOT NULL,
+
         attendance_date DATE NOT NULL,
         check_in TIME,
         check_out TIME,
         status VARCHAR(20),
-        FOREIGN KEY (student_id) REFERENCES students(id)
+
+        FOREIGN KEY (student_id)
+          REFERENCES students(id)
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+
+        FOREIGN KEY (course_id)
+          REFERENCES courses(id)
+          ON UPDATE CASCADE
+          ON DELETE RESTRICT
       )
     `;
 
@@ -191,14 +203,20 @@ router.get("/history/:studentId", async (req, res) => {
       const [rows] = await pool.query(
           `
           SELECT
-              id,
-              attendance_date,
-              check_in,
-              check_out,
-              status
-          FROM attendance
-          WHERE student_id = ?
-          ORDER BY attendance_date DESC
+            a.id,
+            a.course_id,
+            c.course_code,
+            c.course_title,
+            c.course_unit,
+            a.attendance_date,
+            a.check_in,
+            a.check_out,
+            a.status
+          FROM attendance a
+          JOIN courses c
+              ON a.course_id = c.id
+          WHERE a.student_id = ?
+          ORDER BY a.attendance_date DESC
           LIMIT ? OFFSET ?
           `,
           [studentId, limit, offset]

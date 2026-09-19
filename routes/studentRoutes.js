@@ -633,6 +633,7 @@ router.get("/courses", studentMiddleware, async (req, res) => {
         c.id,
         c.course_code,
         c.course_title,
+        c.course_unit,
         c.created_at,
 
         CASE
