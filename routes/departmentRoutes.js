@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-const adminMiddleware = require("../middleware/adminMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
+const requireRole = require("../middleware/roleMiddleware");
 
 const {
   createDepartment,
@@ -40,11 +41,11 @@ const initDepartmentTable = async () => {
 
 initDepartmentTable();
 
-router.post("/", adminMiddleware, createDepartment);
-router.get("/", adminMiddleware, getDepartments);
-router.get("/:id", adminMiddleware, getDepartmentById);
-router.put("/:id", adminMiddleware, updateDepartment);
-router.delete("/:id", adminMiddleware, deleteDepartment);
+router.post("/", authMiddleware, requireRole("admin"), createDepartment);
+router.get("/", authMiddleware, requireRole("admin"), getDepartments);
+router.get("/:id", authMiddleware, requireRole("admin"), getDepartmentById);
+router.put("/:id", authMiddleware, requireRole("admin"), updateDepartment);
+router.delete("/:id", authMiddleware, requireRole("admin"), deleteDepartment);
 
 
 module.exports = router;

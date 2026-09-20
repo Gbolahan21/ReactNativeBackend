@@ -1,7 +1,8 @@
 const express = require("express");
 const pool = require("../db");
 const router = express.Router();
-const adminMiddleware = require("../middleware/adminMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
+const requireRole = require("../middleware/roleMiddleware");
 
 const {
   createFaculty,
@@ -30,11 +31,11 @@ const initFacultyTable = async () => {
 
 initFacultyTable();
 
-router.post("/", adminMiddleware, createFaculty);
-router.get("/", adminMiddleware, getFaculties);
-router.get("/:id", adminMiddleware, getFacultyById);
-router.put("/:id", adminMiddleware, updateFaculty);
-router.delete("/:id", adminMiddleware, deleteFaculty);
+router.post("/", authMiddleware, requireRole("admin"), createFaculty);
+router.get("/", authMiddleware, requireRole("admin"), getFaculties);
+router.get("/:id", authMiddleware, requireRole("admin"), getFacultyById);
+router.put("/:id", authMiddleware, requireRole("admin"), updateFaculty);
+router.delete("/:id", authMiddleware, requireRole("admin"), deleteFaculty);
 
 
 module.exports = router;

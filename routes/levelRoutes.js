@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db");
-const adminMiddleware = require("../middleware/adminMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
+const requireRole = require("../middleware/roleMiddleware");
 
 const {
   createLevel,
@@ -31,11 +32,11 @@ const initLevelTable = async () => {
 
 initLevelTable();
 
-router.post("/", adminMiddleware, createLevel);
-router.get("/", adminMiddleware, getLevels);
-router.get("/:id", adminMiddleware, getLevelById);
-router.put("/:id", adminMiddleware, updateLevel);
-router.delete("/:id", adminMiddleware, deleteLevel);
+router.post("/", authMiddleware, requireRole("admin"), createLevel);
+router.get("/", authMiddleware, requireRole("admin"), getLevels);
+router.get("/:id", authMiddleware, requireRole("admin"), getLevelById);
+router.put("/:id", authMiddleware, requireRole("admin"), updateLevel);
+router.delete("/:id", authMiddleware, requireRole("admin"), deleteLevel);
 
 
 module.exports = router;

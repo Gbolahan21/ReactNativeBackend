@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
-const adminMiddleware = require("../middleware/adminMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
+const requireRole = require("../middleware/roleMiddleware");
 
 const {
   createCourse,
@@ -63,11 +64,11 @@ const initCourseTable = async () => {
 
 initCourseTable();
 
-router.post("/", adminMiddleware, createCourse);
-router.get("/", adminMiddleware, getCourses);
-router.get("/:id", adminMiddleware, getCourseById);
-router.put("/:id", adminMiddleware, updateCourse);
-router.delete("/:id", adminMiddleware, deleteCourse);
+router.post("/", authMiddleware, requireRole("admin"), createCourse);
+router.get("/", authMiddleware, requireRole("admin"), getCourses);
+router.get("/:id", authMiddleware, requireRole("admin"), getCourseById);
+router.put("/:id", authMiddleware, requireRole("admin"), updateCourse);
+router.delete("/:id", authMiddleware, requireRole("admin"), deleteCourse);
 
 
 module.exports = router;

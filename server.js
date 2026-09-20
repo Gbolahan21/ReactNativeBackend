@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 
 const studentRoutes = require("./routes/studentRoutes");
+const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/adminRoutes");
 const lecturerRoutes = require("./routes/lecturerRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
@@ -30,6 +31,7 @@ app.get("/", (req, res) => {
 });
 
 // Routes
+app.use("/auth", authRoutes);
 app.use("/student", studentRoutes);
 app.use("/admin", adminRoutes);
 app.use("/lecturer", lecturerRoutes);
