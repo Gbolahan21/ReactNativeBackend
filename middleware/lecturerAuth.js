@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const authMiddleware = (req, res, next) => {
+const lecturerAuth = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -18,14 +18,12 @@ const authMiddleware = (req, res, next) => {
       process.env.JWT_SECRET
     );
 
-    // Store authenticated user information
-    req.user = decoded;
+    // Make lecturer information available to the route
+    req.lecturer = decoded;
 
     next();
 
   } catch (error) {
-    console.error("Authentication error:", error.message);
-
     return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
@@ -33,4 +31,4 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+module.exports = lecturerAuth;

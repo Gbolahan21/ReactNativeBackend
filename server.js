@@ -5,6 +5,7 @@ const cors = require("cors");
 
 const studentRoutes = require("./routes/studentRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const lecturerRoutes = require("./routes/lecturerRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 const facultyRoutes = require("./routes/facultyRoutes");
 const departmentRoutes = require("./routes/departmentRoutes");
@@ -31,6 +32,7 @@ app.get("/", (req, res) => {
 // Routes
 app.use("/student", studentRoutes);
 app.use("/admin", adminRoutes);
+app.use("/lecturer", lecturerRoutes);
 app.use("/attendance", attendanceRoutes);
 app.use("/faculty", facultyRoutes);
 app.use("/department", departmentRoutes);

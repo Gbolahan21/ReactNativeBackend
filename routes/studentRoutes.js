@@ -253,6 +253,14 @@ router.post("/signin", async (req, res) => {
       [matricNo]
     );
 
+    // Check account status
+    if (student.status !== "Active") {
+      return res.status(403).json({
+        success: false,
+        message: `Your student account status is ${s.status}`,
+      });
+    }
+
     if (!student) {
       return res.status(400).json({
         error: "Student not found",

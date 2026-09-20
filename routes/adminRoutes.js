@@ -97,7 +97,7 @@ router.post('/signin', async(req, res) => {
           return res.status(400).json({ error: true, message: 'Invalid password' });
         }
 
-        const token = jwt.sign({ id: admin.id,  email: admin.email, }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: admin.id, role: "admin",  email: admin.email, }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         res.json({
           message: 'Login successful',
