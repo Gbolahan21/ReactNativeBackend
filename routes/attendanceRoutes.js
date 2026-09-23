@@ -2,7 +2,7 @@ const express = require("express");
 const pool = require("../db");
 
 const router = express.Router();
-
+const studentMiddleware = require("../middleware/studentMiddleware");
 
 const initAttendanceTable = async () => {
   try {
@@ -39,77 +39,210 @@ const initAttendanceTable = async () => {
 
 initAttendanceTable();
 
-router.post("/checkin", async (req, res) => {
-  const { studentId, courseId } = req.body;
+router.post("/checkin", studentMiddleware, async (req, res) => {
+  const studentId = req.student.id;
+  const { courseId, sessionCode } = req.body;
 
-  if (!studentId || !courseId) {
+  if (!courseId || !sessionCode) {
     return res.status(400).json({
-      error: "Student and course are required.",
+      error: "Course and attendance code are required.",
     });
   }
 
   try {
-    const [existing] = await pool.query(
-      `SELECT *
-       FROM attendance
-       WHERE student_id = ?
-       AND course_id = ?
-       AND attendance_date = CURDATE()`,
-      [studentId, courseId]
+    const [[semester]] = await pool.query(
+      `
+      SELECT id, name
+      FROM semesters
+      WHERE is_current = 1
+      LIMIT 1
+      `
     );
 
-    if (existing.length > 0) {
+    if (!semester) {
       return res.status(400).json({
-        error: "Attendance has already been recorded for this course today.",
+        error: "No active semester has been set.",
       });
     }
 
-    await pool.query(
-      `INSERT INTO attendance
-       (student_id, course_id, attendance_date, check_in, status)
-       VALUES (?, ?, CURDATE(), CURTIME(), ?)`,
-      [studentId, courseId, "Present"]
+    const [[registration]] = await pool.query(
+      `
+      SELECT
+        cr.id,
+        cr.course_id,
+        cr.semester_id
+      FROM course_registrations cr
+      WHERE cr.student_id = ?
+        AND cr.course_id = ?
+        AND cr.semester_id = ?
+      LIMIT 1
+      `,
+      [
+        studentId,
+        courseId,
+        semester.id,
+      ]
     );
 
-    res.json({
+    if (!registration) {
+      return res.status(403).json({
+        error: "You are not registered for this course.",
+      });
+    }
+
+    const [[session]] = await pool.query(
+      `
+      SELECT
+        id,
+        lecturer_id,
+        course_id,
+        semester_id,
+        session_code,
+        started_at,
+        expires_at,
+        status
+      FROM attendance_sessions
+      WHERE course_id = ?
+        AND semester_id = ?
+        AND session_code = ?
+        AND status = 'Active'
+        AND started_at <= NOW()
+        AND expires_at > NOW()
+      ORDER BY started_at DESC
+      LIMIT 1
+      `,
+      [
+        courseId,
+        semester.id,
+        sessionCode,
+      ]
+    );
+
+    if (!session) {
+      return res.status(400).json({
+        error: "Invalid or expired attendance code.",
+      });
+    }
+
+    const [[existing]] = await pool.query(
+      `
+      SELECT id
+      FROM attendance
+      WHERE student_id = ?
+        AND course_id = ?
+        AND attendance_date = CURDATE()
+      LIMIT 1
+      `,
+      [
+        studentId,
+        courseId,
+      ]
+    );
+
+    if (existing) {
+      return res.status(400).json({
+        error:
+          "Attendance has already been recorded for this course today.",
+      });
+    }
+
+    const [result] = await pool.query(
+      `
+      INSERT INTO attendance (
+        student_id,
+        course_id,
+        attendance_date,
+        check_in,
+        status
+      )
+      VALUES (
+        ?,
+        ?,
+        CURDATE(),
+        CURTIME(),
+        ?
+      )
+      `,
+      [
+        studentId,
+        courseId,
+        "Present",
+      ]
+    );
+
+    const [[attendance]] = await pool.query(
+      `
+      SELECT
+        a.id,
+        a.student_id,
+        a.course_id,
+        c.course_code,
+        c.course_title,
+        a.attendance_date,
+        a.check_in,
+        a.check_out,
+        a.status
+      FROM attendance a
+      JOIN courses c
+        ON a.course_id = c.id
+      WHERE a.id = ?
+      `,
+      [result.insertId]
+    );
+
+    return res.status(201).json({
+      success: true,
       message: "Attendance recorded successfully.",
+      attendance,
     });
 
   } catch (err) {
-    console.error("Check-in error:", err);
+    console.error("CHECK-IN ERROR:", err);
 
-    res.status(500).json({
-      error: err.message,
+    return res.status(500).json({
+      error: "Failed to record attendance.",
     });
   }
 });
 
-router.post("/checkout", async (req, res) => {
-  const { studentId, courseId } = req.body;
+router.post("/checkout", studentMiddleware, async (req, res) => {
+  const studentId = req.student.id;
+  const { courseId } = req.body;
 
-  if (!studentId || !courseId) {
+  if (!courseId) {
     return res.status(400).json({
-      error: "Student and course are required.",
+      error: "Course is required.",
     });
   }
 
   try {
-    const [rows] = await pool.query(
-      `SELECT *
-       FROM attendance
-       WHERE student_id = ?
-       AND course_id = ?
-       AND attendance_date = CURDATE()`,
-      [studentId, courseId]
+    const [[attendance]] = await pool.query(
+      `
+      SELECT
+        id,
+        student_id,
+        course_id,
+        attendance_date,
+        check_in,
+        check_out,
+        status
+      FROM attendance
+      WHERE student_id = ?
+        AND course_id = ?
+        AND attendance_date = CURDATE()
+      LIMIT 1
+      `,
+      [
+        studentId,
+        courseId,
+      ]
     );
 
-    if (rows.length === 0) {
+    if (!attendance) {
       return res.status(400).json({
         error: "You have not checked in for this course today.",
       });
     }
-
-    const attendance = rows[0];
 
     if (!attendance.check_in) {
       return res.status(400).json({
@@ -124,14 +257,17 @@ router.post("/checkout", async (req, res) => {
     }
 
     await pool.query(
-      `UPDATE attendance
-       SET check_out = CURTIME()
-       WHERE id = ?`,
+      `
+      UPDATE attendance
+      SET check_out = CURTIME()
+      WHERE id = ?
+      `,
       [attendance.id]
     );
 
-    const [updatedAttendance] = await pool.query(
-      `SELECT
+    const [[updatedAttendance]] = await pool.query(
+      `
+      SELECT
         id,
         student_id,
         course_id,
@@ -139,21 +275,23 @@ router.post("/checkout", async (req, res) => {
         check_in,
         check_out,
         status
-       FROM attendance
-       WHERE id = ?`,
+      FROM attendance
+      WHERE id = ?
+      `,
       [attendance.id]
     );
 
-    res.json({
+    return res.json({
+      success: true,
       message: "Checkout recorded successfully.",
-      attendance: updatedAttendance[0],
+      attendance: updatedAttendance,
     });
 
   } catch (err) {
-    console.error("Checkout error:", err);
+    console.error("CHECKOUT ERROR:", err);
 
-    res.status(500).json({
-      error: err.message,
+    return res.status(500).json({
+      error: "Failed to record checkout.",
     });
   }
 });
