@@ -218,13 +218,29 @@ const getActiveAttendance = async (req, res) => {
                 a.session_code,
                 a.started_at,
                 a.expires_at,
-                a.status
+                a.status,
+
+                COUNT(att.id) AS present_count
+
             FROM attendance_sessions a
             INNER JOIN courses c
                 ON c.id = a.course_id
+            LEFT JOIN attendance att
+                ON att.course_id = a.course_id
+                AND att.attendance_date = CURDATE()
+                AND att.status = 'Present'
             WHERE a.lecturer_id = ?
               AND a.status = 'Active'
               AND a.expires_at > NOW()
+            GROUP BY
+                a.id,
+                a.course_id,
+                c.course_code,
+                c.course_title,
+                a.session_code,
+                a.started_at,
+                a.expires_at,
+                a.status
             ORDER BY a.started_at DESC
             `,
             [lecturerId]
