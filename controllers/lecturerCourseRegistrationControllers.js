@@ -630,6 +630,195 @@ const removeCourseRegistration = async (req, res) => {
   }
 };
 
+const getLecturerDashboard = async (req, res) => {
+    try {
+        const lecturerId = req.user.id;
+
+        // Get current semester
+        const [[currentSemester]] = await pool.query(`
+            SELECT
+                id,
+                name
+            FROM semesters
+            WHERE is_current = 1
+            LIMIT 1
+        `);
+
+        if (!currentSemester) {
+            return res.json({
+                success: true,
+                currentSemester: null,
+                totalCourses: 0,
+                totalStudents: 0,
+                presentToday: 0,
+                absentToday: 0,
+                attendanceRate: 0,
+                courses: [],
+            });
+        }
+
+        /*
+         * Get courses registered by this lecturer
+         * for the current semester.
+         */
+        const [courses] = await pool.query(
+            `
+            SELECT
+                lcr.id AS registration_id,
+
+                c.id AS course_id,
+                c.course_code,
+                c.course_title,
+                c.course_unit,
+
+                f.id AS faculty_id,
+                f.name AS faculty_name,
+
+                d.id AS department_id,
+                d.name AS department_name,
+
+                l.id AS level_id,
+                l.name AS level_name
+
+            FROM lecturer_course_registrations lcr
+
+            INNER JOIN courses c
+                ON lcr.course_id = c.id
+
+            INNER JOIN faculties f
+                ON lcr.faculty_id = f.id
+
+            INNER JOIN departments d
+                ON lcr.department_id = d.id
+
+            INNER JOIN levels l
+                ON lcr.level_id = l.id
+
+            WHERE lcr.lecturer_id = ?
+              AND lcr.semester_id = ?
+
+            ORDER BY c.course_code ASC
+            `,
+            [lecturerId, currentSemester.id]
+        );
+
+        const totalCourses = courses.length;
+
+        /*
+         * Get students associated with the lecturer's
+         * registered courses.
+         *
+         * DISTINCT prevents a student taking multiple
+         * courses from being counted more than once.
+         */
+        const [[studentCount]] = await pool.query(
+            `
+            SELECT COUNT(DISTINCT s.id) AS totalStudents
+
+            FROM students s
+
+            INNER JOIN attendance a
+                ON a.student_id = s.id
+
+            INNER JOIN lecturer_course_registrations lcr
+                ON lcr.course_id = a.course_id
+
+            WHERE lcr.lecturer_id = ?
+              AND lcr.semester_id = ?
+            `,
+            [lecturerId, currentSemester.id]
+        );
+
+        /*
+         * Attendance marked Present today for this lecturer's
+         * registered courses.
+         */
+        const [[presentToday]] = await pool.query(
+            `
+            SELECT COUNT(*) AS presentToday
+
+            FROM attendance a
+
+            INNER JOIN lecturer_course_registrations lcr
+                ON lcr.course_id = a.course_id
+
+            WHERE lcr.lecturer_id = ?
+              AND lcr.semester_id = ?
+              AND a.attendance_date = CURDATE()
+              AND a.status = 'Present'
+            `,
+            [lecturerId, currentSemester.id]
+        );
+
+        /*
+         * Attendance marked Absent today.
+         */
+        const [[absentToday]] = await pool.query(
+            `
+            SELECT COUNT(*) AS absentToday
+
+            FROM attendance a
+
+            INNER JOIN lecturer_course_registrations lcr
+                ON lcr.course_id = a.course_id
+
+            WHERE lcr.lecturer_id = ?
+              AND lcr.semester_id = ?
+              AND a.attendance_date = CURDATE()
+              AND a.status = 'Absent'
+            `,
+            [lecturerId, currentSemester.id]
+        );
+
+        const totalAttendance =
+            Number(presentToday.presentToday) +
+            Number(absentToday.absentToday);
+
+        const attendanceRate =
+            totalAttendance === 0
+                ? 0
+                : Math.round(
+                      (Number(presentToday.presentToday) /
+                          totalAttendance) *
+                          100
+                  );
+
+        return res.json({
+            success: true,
+
+            currentSemester,
+
+            totalCourses,
+
+            totalStudents: Number(
+                studentCount.totalStudents
+            ),
+
+            presentToday: Number(
+                presentToday.presentToday
+            ),
+
+            absentToday: Number(
+                absentToday.absentToday
+            ),
+
+            attendanceRate,
+
+            courses,
+        });
+    } catch (error) {
+        console.error(
+            "GET LECTURER DASHBOARD ERROR:",
+            error
+        );
+
+        return res.status(500).json({
+            error: true,
+            message: "Failed to fetch lecturer dashboard",
+        });
+    }
+};
+
 module.exports = {
   getCurrentSemester,
   getDepartmentsByFaculty,
@@ -638,5 +827,6 @@ module.exports = {
   getAvailableCourses,
   registerCourses,
   getMyCourses,
-  removeCourseRegistration
+  removeCourseRegistration,
+  getLecturerDashboard
 };
