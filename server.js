@@ -14,6 +14,7 @@ const levelRoutes = require("./routes/levelRoutes");
 const courseRoutes = require("./routes/courseRoutes");
 const semesterRoutes = require("./routes/semesterRoutes");
 const courseRegistrationRoutes = require("./routes/courseRegistrationRoutes");
+const lecturerCourseRegistrationRoutes = require("./routes/lecturerCourseRegistrationRoutes");
 
 const initCourseRegistrationsTable = require(
   "./databases/initCourseRegistrationsTable"
@@ -42,6 +43,8 @@ app.use("/level", levelRoutes);
 app.use("/course", courseRoutes);
 app.use("/semester", semesterRoutes);
 app.use("/course-registration", courseRegistrationRoutes);
+app.use("/lecturer/course-registration", lecturerCourseRegistrationRoutes);
+
 
 initCourseRegistrationsTable();
 
