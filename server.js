@@ -16,6 +16,7 @@ const courseRoutes = require("./routes/courseRoutes");
 const semesterRoutes = require("./routes/semesterRoutes");
 const courseRegistrationRoutes = require("./routes/courseRegistrationRoutes");
 const lecturerCourseRegistrationRoutes = require("./routes/lecturerCourseRegistrationRoutes");
+const forgotPassword = require("./routes/forgotPassword");
 
 const initCourseRegistrationsTable = require(
   "./databases/initCourseRegistrationsTable"
@@ -44,6 +45,7 @@ app.use("/department", departmentRoutes);
 app.use("/level", levelRoutes);
 app.use("/course", courseRoutes);
 app.use("/semester", semesterRoutes);
+app.use("/reset-password", forgotPassword);
 app.use("/course-registration", courseRegistrationRoutes);
 app.use("/lecturer/course-registration", lecturerCourseRegistrationRoutes);
 
