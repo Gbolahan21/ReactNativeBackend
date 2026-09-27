@@ -14,6 +14,7 @@ const initForgotPasswordTable = async () => {
         token VARCHAR(255) NOT NULL,
         expires_at DATETIME NOT NULL,
         used TINYINT(1) DEFAULT 0,
+        verified TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
         FOREIGN KEY (student_id)
@@ -258,6 +259,16 @@ router.post("/student/verify-reset-code", async (req, res) => {
       });
     }
 
+    await pool.query(
+      `
+      UPDATE password_resets
+      SET verified = 1,
+          expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE)
+      WHERE id = ?
+      `,
+      [reset.id]
+    );
+
     return res.json({
       success: true,
       message: "Verification code verified successfully.",
@@ -364,11 +375,13 @@ router.post("/student/reset-password", async (req, res) => {
         id,
         student_id,
         expires_at,
-        used
+        used,
+        verified
       FROM password_resets
       WHERE id = ?
         AND student_id = ?
         AND used = 0
+        AND verified = 1
       LIMIT 1
       `,
       [
