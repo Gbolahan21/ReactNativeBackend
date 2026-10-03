@@ -14,7 +14,8 @@ const {
   registerCourses,
   getMyCourses,
   removeCourseRegistration,
-  getLecturerDashboard
+  getLecturerDashboard,
+  getLecturerStudents
 } = require("../controllers/lecturerCourseRegistrationControllers");
 
 const initLecturerCourseRegistrationTable = async () => {
@@ -91,6 +92,7 @@ router.get("/courses", authMiddleware, requireRole("lecturer"),getAvailableCours
 router.post("/", authMiddleware, requireRole("lecturer"), registerCourses);
 router.get("/", authMiddleware, requireRole("lecturer"),getMyCourses);
 router.delete("/:id", authMiddleware, requireRole("lecturer"), removeCourseRegistration);
-router.get("/dashboard",authMiddleware,requireRole("lecturer"), getLecturerDashboard);
+router.get("/dashboard",authMiddleware, requireRole("lecturer"), getLecturerDashboard);
+router.get("/students", authMiddleware, requireRole("lecturer"), getLecturerStudents);
 
 module.exports = router;

@@ -819,6 +819,171 @@ const getLecturerDashboard = async (req, res) => {
     }
 };
 
+const getLecturerStudents = async (req, res) => {
+  try {
+    const lecturerId = req.user.id;
+
+    const page = Math.max(
+      Number(req.query.page) || 1,
+      1
+    );
+
+    const requestedLimit = Number(req.query.limit) || 10;
+
+    const limit = Math.min(
+      Math.max(requestedLimit, 1),
+      100
+    );
+
+    const search = req.query.search || "";
+
+    const offset = (page - 1) * limit;
+
+    const searchTerm = `%${search}%`;
+
+    /*
+      * 1. Get current semester
+      */
+    const [[currentSemester]] = await pool.query(
+      `
+      SELECT
+          id,
+          name
+      FROM semesters
+      WHERE is_current = TRUE
+      LIMIT 1
+      `
+    );
+
+    if (!currentSemester) {
+      return res.json({
+        success: true,
+        records: [],
+        page,
+        totalPages: 0,
+        total: 0,
+      });
+    }
+
+    /*
+      * 2. Count students that belong to the
+      *    lecturer's registered course groups.
+      */
+    const [[{ total }]] = await pool.query(
+        `
+        SELECT COUNT(DISTINCT s.id) AS total
+
+        FROM students s
+
+        INNER JOIN lecturer_course_registrations lcr
+            ON lcr.faculty_id = s.faculty_id
+            AND lcr.department_id = s.department_id
+            AND lcr.level_id = s.level_id
+            AND lcr.semester_id = ?
+
+        WHERE lcr.lecturer_id = ?
+
+          AND (
+                s.firstname LIKE ?
+                OR s.lastname LIKE ?
+                OR s.matricNo LIKE ?
+          )
+        `,
+        [
+            currentSemester.id,
+            lecturerId,
+            searchTerm,
+            searchTerm,
+            searchTerm,
+        ]
+    );
+
+    /*
+      * 3. Get students
+      */
+    const [students] = await pool.query(
+      `
+      SELECT DISTINCT
+        s.id,
+        s.firstname,
+        s.lastname,
+        s.matricNo,
+        s.email,
+        s.gender,
+        s.status,
+        s.created_at,
+
+        d.name AS department,
+        f.name AS faculty,
+        l.name AS level,
+
+        sem.name AS semester
+
+      FROM students s
+
+      INNER JOIN lecturer_course_registrations lcr
+        ON lcr.faculty_id = s.faculty_id
+        AND lcr.department_id = s.department_id
+        AND lcr.level_id = s.level_id
+        AND lcr.semester_id = ?
+
+      LEFT JOIN departments d
+        ON s.department_id = d.id
+
+      LEFT JOIN faculties f
+        ON s.faculty_id = f.id
+
+      LEFT JOIN levels l
+        ON s.level_id = l.id
+
+      LEFT JOIN semesters sem
+        ON sem.is_current = TRUE
+
+      WHERE lcr.lecturer_id = ?
+
+      AND (
+        s.firstname LIKE ?
+        OR s.lastname LIKE ?
+        OR s.matricNo LIKE ?
+      )
+
+      ORDER BY s.firstname ASC
+
+      LIMIT ?
+      OFFSET ?
+      `,
+      [
+        currentSemester.id,
+        lecturerId,
+        searchTerm,
+        searchTerm,
+        searchTerm,
+        limit,
+        offset,
+      ]
+    );
+
+    return res.json({
+      success: true,
+      records: students,
+      page,
+      totalPages: Math.ceil(total / limit),
+      total,
+    });
+
+  } catch (err) {
+    console.error(
+      "GET LECTURER STUDENTS ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+      error: true,
+      message: "Failed to fetch lecturer students",
+    });
+  }
+};
+
 module.exports = {
   getCurrentSemester,
   getDepartmentsByFaculty,
@@ -828,5 +993,6 @@ module.exports = {
   registerCourses,
   getMyCourses,
   removeCourseRegistration,
-  getLecturerDashboard
+  getLecturerDashboard,
+  getLecturerStudents
 };
