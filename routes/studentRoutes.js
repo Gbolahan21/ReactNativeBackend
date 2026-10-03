@@ -367,6 +367,7 @@ router.patch("/update", studentMiddleware, async (req, res) => {
   const {
     firstname,
     lastname,
+    matricNo,
     gender,
     department,
     faculty,
@@ -378,6 +379,7 @@ router.patch("/update", studentMiddleware, async (req, res) => {
     if (
       !firstname ||
       !lastname ||
+      !matricNo ||
       !gender ||
       !department ||
       !faculty ||
@@ -458,6 +460,7 @@ router.patch("/update", studentMiddleware, async (req, res) => {
       SET
         firstname = ?,
         lastname = ?,
+        matricNo = ?,
         gender = ?,
         department_id = ?,
         faculty_id = ?,
@@ -467,6 +470,7 @@ router.patch("/update", studentMiddleware, async (req, res) => {
       [
         firstname.trim(),
         lastname.trim(),
+        matricNo,
         gender,
         departmentRow.id,
         facultyRow.id,
