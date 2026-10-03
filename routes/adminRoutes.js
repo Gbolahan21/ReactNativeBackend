@@ -158,4 +158,75 @@ router.get("/students", async (req, res) => {
   }
 });
 
+router.get("/lecturers", async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+
+    const requestedLimit = Number(req.query.limit) || 10;
+    const limit = Math.min(Math.max(requestedLimit, 1), 100);
+
+    const search = req.query.search || "";
+    const offset = (page - 1) * limit;
+    const searchTerm = `%${search}%`;
+
+    const [[{ total }]] = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM lecturers
+      WHERE
+        firstname LIKE ?
+        OR lastname LIKE ?
+        OR staff_id LIKE ?
+      `,
+      [searchTerm, searchTerm, searchTerm]
+    );
+
+    const [lecturers] = await pool.query(
+      `
+      SELECT
+        l.id,
+        l.firstname,
+        l.lastname,
+        l.email,
+        l.staff_id,
+        l.status,
+        l.created_at
+
+      FROM lecturers l
+
+      WHERE
+        l.firstname LIKE ?
+        OR l.lastname LIKE ?
+        OR l.staff_id LIKE ?
+
+      ORDER BY l.firstname ASC
+
+      LIMIT ?
+      OFFSET ?
+      `,
+      [
+        searchTerm,
+        searchTerm,
+        searchTerm,
+        limit,
+        offset,
+      ]
+    );
+
+    res.json({
+      records: lecturers,
+      page,
+      totalPages: Math.ceil(total / limit),
+      total,
+    });
+
+  } catch (err) {
+    console.error("GET LECTURERS ERROR:", err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
 module.exports = router;
