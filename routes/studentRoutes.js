@@ -270,6 +270,34 @@ router.post("/signin", async (req, res) => {
       });
     }
 
+    if (student.status === "Graduated") {
+      return res.status(403).json({
+        error: true,
+        message: "Your account is disabled because you have graduated.",
+      });
+    }
+
+    if (student.status === "Suspended") {
+      return res.status(403).json({
+        error: true,
+        message: "Your account is disabled because you have been suspended.",
+      });
+    }
+
+    if (student.status === "Withdrawn") {
+      return res.status(403).json({
+        error: true,
+        message: "Your account is disabled because you have been withdrawn.",
+      });
+    }
+
+    if (student.status === "Inactive") {
+      return res.status(403).json({
+        error: true,
+        message: "Your account is disabled because you're not active.",
+      });
+    }
+
     const token = jwt.sign(
       {
         id: student.id,

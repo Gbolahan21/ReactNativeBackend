@@ -1,44 +1,61 @@
 const pool = require("../db");
 
+const isValidAcademicYear = (year) => {
+  if (typeof year !== "string") return false;
+
+  const match = year.trim().match(/^(\d{4})\/(\d{4})$/);
+
+  if (!match) return false;
+
+  return Number(match[2]) === Number(match[1]) + 1;
+};
+
 // CREATE SEMESTER
 const createSemester = async (req, res) => {
-  const { name } = req.body;
+  const { name, academic_year } = req.body;
 
-  if (!name || !name.trim()) {
+  if (typeof name !== "string" || !name.trim()) {
     return res.status(400).json({
       error: true,
       message: "Semester name is required",
     });
   }
 
+  if (!isValidAcademicYear(academic_year)) {
+    return res.status(400).json({
+      error: true,
+      message: "Academic year must be in YYYY/YYYY format, e.g. 2026/2027",
+    });
+  }
+
   const semesterName = name.trim();
+  const academicYear = academic_year.trim();
 
   try {
     // Check if semester already exists
-    const [existingSemester] = await pool.query(
+    const [existing] = await pool.query(
       `SELECT id
        FROM semesters
-       WHERE name = ?`,
-      [semesterName]
+       WHERE name = ? AND academic_year = ?`,
+      [semesterName, academicYear]
     );
 
-    if (existingSemester.length > 0) {
+    if (existing.length > 0) {
       return res.status(400).json({
         error: true,
-        message: "Semester already exists",
+        message: "This semester already exists for the selected academic year",
       });
     }
 
     const [result] = await pool.query(
-      `INSERT INTO semesters (name)
-       VALUES (?)`,
-      [semesterName]
+      `INSERT INTO semesters (name, academic_year)
+       VALUES (?, ?)`,
+      [semesterName, academicYear]
     );
 
     const [rows] = await pool.query(
-      `SELECT id, name, created_at
-       FROM semesters
-       WHERE id = ?`,
+      `SELECT id, name, academic_year, is_current, created_at
+       FROM semesters WHERE id = ?`,
       [result.insertId]
     );
 
@@ -62,9 +79,9 @@ const createSemester = async (req, res) => {
 const getSemesters = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, is_current, created_at
-       FROM semesters
-       ORDER BY id ASC`
+      `SELECT id, name, academic_year, is_current, created_at
+        FROM semesters
+        ORDER BY id ASC`
     );
 
     return res.json({
@@ -88,9 +105,9 @@ const getSemesterById = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, is_current, created_at
-       FROM semesters
-       WHERE id = ?`,
+      `SELECT id, name, academic_year, is_current, created_at
+        FROM semesters
+        WHERE id = ?`,
       [id]
     );
 
@@ -119,69 +136,215 @@ const getSemesterById = async (req, res) => {
 // UPDATE SEMESTER
 const updateSemester = async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const { name, academic_year } = req.body;
 
-  if (!name || !name.trim()) {
+  if (typeof name !== "string" || !name.trim()) {
     return res.status(400).json({
       error: true,
       message: "Semester name is required",
     });
   }
 
+  if (typeof academic_year !== "string" || !isValidAcademicYear(academic_year.trim())) {
+    return res.status(400).json({
+      error: true,
+      message: "Academic year must be in YYYY/YYYY format, e.g. 2026/2027",
+    });
+  }
+
   const semesterName = name.trim();
+  const academicYear = academic_year.trim();
+
+  const connection = await pool.getConnection();
 
   try {
-    // Check if semester exists
-    const [existingSemester] = await pool.query(
-      `SELECT id
-       FROM semesters
-       WHERE id = ?`,
+    await connection.beginTransaction();
+    const [existingRows] = await connection.query(
+      `SELECT id, name, academic_year, is_current
+        FROM semesters WHERE id = ?
+        FOR UPDATE`,
       [id]
     );
 
-    if (existingSemester.length === 0) {
+    if (existingRows.length === 0) {
+      await connection.rollback();
       return res.status(404).json({
         error: true,
         message: "Semester not found",
       });
     }
 
-    // Check duplicate semester
-    const [duplicateSemester] = await pool.query(
-      `SELECT id
-       FROM semesters
+    const existing = existingRows[0];
+    const oldAcademicYear = existing.academic_year;
+
+    const [duplicate] = await connection.query(
+      `SELECT id FROM semesters
        WHERE name = ?
+       AND academic_year = ?
        AND id != ?`,
-      [semesterName, id]
+      [semesterName, academicYear, id]
     );
 
-    if (duplicateSemester.length > 0) {
+    if (duplicate.length > 0) {
+      await connection.rollback();
       return res.status(400).json({
         error: true,
-        message: "Another semester with this name already exists",
+        message: "Another semester with this name already exists for this academic year",
       });
     }
 
-    await pool.query(
-      `UPDATE semesters
-       SET name = ?
-       WHERE id = ?`,
-      [semesterName, id]
+    const oldYearMatch = /^(\d{4})\/(\d{4})$/.exec(
+      oldAcademicYear || ""
     );
 
-    const [rows] = await pool.query(
-      `SELECT id, name, created_at
-       FROM semesters
-       WHERE id = ?`,
-      [id]
+    const newYearMatch = /^(\d{4})\/(\d{4})$/.exec(
+      academicYear
     );
+
+    const isNextAcademicYear = 
+      oldYearMatch && 
+      newYearMatch && 
+      Number(oldYearMatch[2]) === Number(oldYearMatch[1]) + 1 && 
+      Number(newYearMatch[1]) === Number(oldYearMatch[1]) + 1 && 
+      Number(newYearMatch[2]) === Number(oldYearMatch[2]) + 1;
+
+    let promotedCount = 0;
+
+    if (existing.is_current && isNextAcademicYear) {
+      const [levelRows] = await connection.query(
+        `SELECT id, name FROM levels`
+      );
+
+      const levelIds = new Map();
+
+      for (const level of levelRows) { 
+        const match = /^(\d+)\s*level$/i.exec(
+          String(level.name).trim()
+        );
+
+        if (match) { 
+          levelIds.set(Number(match[1]), level.id); 
+        } 
+      }
+
+      for (const level of [100, 200, 300, 400, 500, 600]) { 
+        if (!levelIds.has(level)) { 
+          throw new Error(`Missing level: ${level} Level`); 
+        } 
+      }
+
+      let graduatedCount = 0;
+
+      const [graduated600] = await connection.query( 
+        `UPDATE students 
+          SET status = 'Graduated' 
+          WHERE level_id = ? 
+          AND status = 'Active'`, 
+        [levelIds.get(600)] 
+      );
+
+      graduatedCount += graduated600.affectedRows;
+
+      const [graduated500] = await connection.query(
+        `UPDATE students s
+        JOIN departments d ON d.id = s.department_id
+        SET s.status = 'Graduated'
+        WHERE s.level_id = ?
+          AND s.status = 'Active'
+          AND d.max_level = 500`,
+        [levelIds.get(500)]
+      );
+
+      graduatedCount += graduated500.affectedRows;
+
+      const [promoted500] = await connection.query(
+        `UPDATE students s
+        JOIN departments d ON d.id = s.department_id
+        SET s.level_id = ?
+        WHERE s.level_id = ?
+          AND s.status = 'Active'
+          AND d.max_level = 600`,
+        [levelIds.get(600), levelIds.get(500)]
+      );
+
+      promotedCount += promoted500.affectedRows;
+
+      const [promoted400] = await connection.query( 
+        `UPDATE students 
+          SET level_id = ? 
+          WHERE level_id = ? 
+          AND status = 'Active'`, 
+        [levelIds.get(500), levelIds.get(400)] 
+      ); 
+      
+      promotedCount += promoted400.affectedRows;
+
+      const [promoted300] = await connection.query( 
+        `UPDATE students 
+          SET level_id = ? 
+          WHERE level_id = ? 
+          AND status = 'Active'`, 
+        [levelIds.get(400), levelIds.get(300)] 
+      ); 
+      
+      promotedCount += promoted300.affectedRows;
+
+      const [promoted200] = await connection.query( 
+        `UPDATE students 
+          SET level_id = ? 
+          WHERE level_id = ? 
+          AND status = 'Active'`, 
+        [levelIds.get(300), levelIds.get(200)] 
+      ); 
+      
+      promotedCount += promoted200.affectedRows;
+
+      const [promoted100] = await connection.query( 
+        `UPDATE students 
+          SET level_id = ? 
+          WHERE level_id = ? 
+          AND status = 'Active'`, 
+        [levelIds.get(200), levelIds.get(100)] 
+      ); 
+      
+      promotedCount += promoted100.affectedRows;
+
+      req.promotionSummary = { 
+        promotedCount, 
+        graduatedCount, 
+      };
+    }
+
+    await connection.query(
+      `UPDATE semesters
+       SET name = ?, academic_year = ?
+       WHERE id = ?`,
+      [semesterName, academicYear, id]
+    );
+
+    const [updatedRows] = await connection.query( 
+      `SELECT id, name, academic_year, is_current, created_at 
+        FROM semesters 
+        WHERE id = ?`,
+      [id] 
+    );
+
+    await connection.commit();
+
+    const summary = req.promotionSummary || {
+      promotedCount: 0,
+      graduatedCount: 0,
+    };
 
     return res.json({
       success: true,
       message: "Semester updated successfully",
-      semester: rows[0],
+      semester: updatedRows[0],
+      studentsPromoted: summary.promotedCount,
+      studentsGraduated: summary.graduatedCount,
     });
   } catch (err) {
+    await connection.rollback();
     console.error("UPDATE SEMESTER ERROR:", err);
 
     return res.status(500).json({
@@ -189,8 +352,10 @@ const updateSemester = async (req, res) => {
       message: "Failed to update semester",
     });
   }
+  finally { 
+    connection.release(); 
+  }
 };
-
 
 // DELETE SEMESTER
 const deleteSemester = async (req, res) => {

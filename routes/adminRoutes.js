@@ -107,7 +107,8 @@ router.get("/students", async (req, res) => {
         f.name AS faculty,
         l.name AS level,
 
-        sem.name AS semester
+        sem.name AS semester,
+        sem.academic_year AS academic_year
 
       FROM students s
 

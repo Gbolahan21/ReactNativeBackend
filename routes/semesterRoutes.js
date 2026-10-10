@@ -19,9 +19,12 @@ const initSemesterTable = async () => {
     const createSemesterTable = `
       CREATE TABLE IF NOT EXISTS semesters (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL,
+        academic_year VARCHAR(9) NOT NULL,
         is_current BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_semester_academic_year
+          (name, academic_year)
       )
     `;
 

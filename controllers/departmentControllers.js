@@ -2,9 +2,9 @@ const pool = require("../db");
 
 // CREATE DEPARTMENT
 const createDepartment = async (req, res) => {
-  const { name, faculty_id } = req.body;
+  const { name, faculty_id, max_level = 600 } = req.body;
 
-  if (!name || !name.trim()) {
+  if (typeof name !== "string" || !name.trim()) {
     return res.status(400).json({
       error: true,
       message: "Department name is required",
@@ -18,10 +18,16 @@ const createDepartment = async (req, res) => {
     });
   }
 
+  if (![500, 600].includes(Number(max_level))) {
+    return res.status(400).json({
+      error: true,
+      message: "Maximum level must be 500 or 600",
+    });
+  }
+
   const departmentName = name.trim();
 
   try {
-    // Check if faculty exists
     const [faculty] = await pool.query(
       `SELECT id FROM faculties WHERE id = ?`,
       [faculty_id]
@@ -34,7 +40,6 @@ const createDepartment = async (req, res) => {
       });
     }
 
-    // Check duplicate department within the same faculty
     const [existingDepartment] = await pool.query(
       `SELECT id
        FROM departments
@@ -50,18 +55,19 @@ const createDepartment = async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO departments (faculty_id, name)
-       VALUES (?, ?)`,
-      [faculty_id, departmentName]
+      `INSERT INTO departments (faculty_id, name, max_level)
+       VALUES (?, ?, ?)`,
+      [faculty_id, departmentName, Number(max_level)]
     );
 
     const [rows] = await pool.query(
       `SELECT
-        d.id,
-        d.name,
-        d.faculty_id,
-        f.name AS faculty_name,
-        d.created_at
+         d.id,
+         d.name,
+         d.faculty_id,
+         d.max_level,
+         f.name AS faculty_name,
+         d.created_at
        FROM departments d
        JOIN faculties f ON d.faculty_id = f.id
        WHERE d.id = ?`,
@@ -83,7 +89,6 @@ const createDepartment = async (req, res) => {
   }
 };
 
-
 // GET ALL DEPARTMENTS
 const getDepartments = async (req, res) => {
   const { faculty_id } = req.query;
@@ -94,6 +99,7 @@ const getDepartments = async (req, res) => {
         d.id,
         d.name,
         d.faculty_id,
+        d.max_level,
         f.name AS faculty_name,
         d.created_at
       FROM departments d
@@ -126,7 +132,6 @@ const getDepartments = async (req, res) => {
   }
 };
 
-
 // GET DEPARTMENT BY ID
 const getDepartmentById = async (req, res) => {
   const { id } = req.params;
@@ -137,6 +142,7 @@ const getDepartmentById = async (req, res) => {
         d.id,
         d.name,
         d.faculty_id,
+        d.max_level,
         f.name AS faculty_name,
         d.created_at
        FROM departments d
@@ -166,11 +172,10 @@ const getDepartmentById = async (req, res) => {
   }
 };
 
-
 // UPDATE DEPARTMENT
 const updateDepartment = async (req, res) => {
   const { id } = req.params;
-  const { name, faculty_id } = req.body;
+  const { name, faculty_id, max_level } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({
@@ -183,6 +188,13 @@ const updateDepartment = async (req, res) => {
     return res.status(400).json({
       error: true,
       message: "Faculty is required",
+    });
+  }
+
+  if (!max_level) {
+    return res.status(400).json({
+      error: true,
+      message: "Max level is required",
     });
   }
 
@@ -225,6 +237,7 @@ const updateDepartment = async (req, res) => {
        FROM departments
        WHERE name = ?
        AND faculty_id = ?
+       AND max_level = ?
        AND id != ?`,
       [departmentName, faculty_id, id]
     );
@@ -238,7 +251,7 @@ const updateDepartment = async (req, res) => {
 
     await pool.query(
       `UPDATE departments
-       SET name = ?, faculty_id = ?
+       SET name = ?, faculty_id = ?, max_level = ?
        WHERE id = ?`,
       [departmentName, faculty_id, id]
     );
@@ -248,6 +261,7 @@ const updateDepartment = async (req, res) => {
         d.id,
         d.name,
         d.faculty_id,
+        d.max_level,
         f.name AS faculty_name,
         d.created_at
        FROM departments d

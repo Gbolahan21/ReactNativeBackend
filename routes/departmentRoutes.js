@@ -21,6 +21,7 @@ const initDepartmentTable = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         faculty_id INT NOT NULL,
         name VARCHAR(150) NOT NULL,
+        max_level INT NOT NULL DEFAULT 600,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_department_faculty
             FOREIGN KEY (faculty_id)
